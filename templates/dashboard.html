@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 760px; margin: 24px auto; line-height: 1.5; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    .link-box { background: #f7f7f7; padding: 12px; border-radius: 6px; word-break: break-all; }
+    button { padding: 8px 12px; cursor: pointer; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h2>VPN User Dashboard</h2>
+  <div class="card">
+    <div><b>Username:</b> <span id="username">-</span></div>
+    <div><b>Email:</b> <span id="email">-</span></div>
+    <div><b>UUID:</b> <span id="uuid">-</span></div>
+    <div style="margin-top: 10px;">
+      <b>Node:</b>
+      <select id="node-select"></select>
+      <button onclick="switchNode()">Switch Node</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Your Subscription / VLESS Link</h3>
+    <div id="vless-link" class="link-box">Loading...</div>
+    <div style="margin-top: 10px;">
+      <button onclick="copyLink()">Copy Link</button>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/";
+    }
+
+    async function loadProfile() {
+      const resp = await fetch("/api/auth/me", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+
+      if (!resp.ok) {
+        localStorage.removeItem("token");
+        window.location.href = "/";
+        return;
+      }
+
+      const data = await resp.json();
+      const user = data.data.user;
+      document.getElementById("username").textContent = user.username;
+      document.getElementById("email").textContent = user.email;
+      document.getElementById("uuid").textContent = user.uuid;
+      document.getElementById("vless-link").textContent = user.vless_link || "x-ui did not return link yet";
+      await loadNodes(user.current_node_id);
+    }
+
+    async function loadNodes(currentNodeId) {
+      const resp = await fetch("/api/nodes", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      if (!resp.ok) return;
+
+      const data = await resp.json();
+      const nodes = (data.data && data.data.nodes) || [];
+      const select = document.getElementById("node-select");
+      select.innerHTML = "";
+      nodes.forEach((n) => {
+        const option = document.createElement("option");
+        option.value = n.id;
+        option.textContent = `${n.name} (${n.region})`;
+        if (n.id === currentNodeId) option.selected = true;
+        select.appendChild(option);
+      });
+    }
+
+    async function switchNode() {
+      const nodeId = Number(document.getElementById("node-select").value);
+      if (!nodeId) return;
+      const resp = await fetch("/api/nodes/select", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ node_id: nodeId })
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        alert(data.message || "switch failed");
+        return;
+      }
+      document.getElementById("uuid").textContent = data.data.uuid;
+      document.getElementById("vless-link").textContent = data.data.vless_link || "x-ui did not return link yet";
+      alert("Node switched.");
+    }
+
+    async function copyLink() {
+      const text = document.getElementById("vless-link").textContent;
+      await navigator.clipboard.writeText(text);
+      alert("Link copied.");
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>

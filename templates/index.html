@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VPN SaaS MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 720px; margin: 24px auto; line-height: 1.5; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    input { width: 100%; margin: 6px 0; padding: 10px; }
+    button { padding: 10px 14px; cursor: pointer; }
+    pre { white-space: pre-wrap; word-break: break-all; background: #f7f7f7; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h2>VPN SaaS MVP</h2>
+
+  <div class="card">
+    <h3>Register</h3>
+    <input id="r-username" placeholder="username" />
+    <input id="r-email" placeholder="email" />
+    <input id="r-password" type="password" placeholder="password" />
+    <button onclick="register()">Register</button>
+  </div>
+
+  <div class="card">
+    <h3>Login</h3>
+    <input id="l-identity" placeholder="username or email" />
+    <input id="l-password" type="password" placeholder="password" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div class="card">
+    <h3>Response</h3>
+    <pre id="output">No request yet.</pre>
+  </div>
+
+  <script>
+    async function readResponseData(resp) {
+      const text = await resp.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { success: false, message: text || "unexpected server response" };
+      }
+    }
+
+    async function register() {
+      const body = {
+        username: document.getElementById("r-username").value,
+        email: document.getElementById("r-email").value,
+        password: document.getElementById("r-password").value
+      };
+      const resp = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await readResponseData(resp);
+      document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+      if (resp.ok && data.data && data.data.token) {
+        localStorage.setItem("token", data.data.token);
+        window.location.href = "/dashboard";
+      }
+    }
+
+    async function login() {
+      const body = {
+        identity: document.getElementById("l-identity").value,
+        password: document.getElementById("l-password").value
+      };
+      const resp = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await readResponseData(resp);
+      document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+      if (resp.ok && data.data && data.data.token) {
+        localStorage.setItem("token", data.data.token);
+        window.location.href = "/dashboard";
+      }
+    }
+  </script>
+</body>
+</html>
