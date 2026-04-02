@@ -1,4 +1,6 @@
-from flask import Blueprint, jsonify, request, g
+from datetime import datetime, UTC
+
+from flask import Blueprint, jsonify, request, g, current_app
 
 from app.extensions import bcrypt, db
 from app.models import Node, User, UserNodeAccess
@@ -140,6 +142,56 @@ def me():
                     "vless_link": user.vless_link,
                     "current_node_id": user.current_node_id,
                 }
+            },
+        }
+    )
+
+
+@auth_bp.get("/usage")
+@jwt_required
+def usage():
+    """
+    Estimate current concurrent usage based on x-ui's lastOnline.
+
+    x-ui may not expose "online IP count" details; we show an estimate
+    using lastOnline time window.
+    """
+    user = g.current_user
+    limit_ip = int(current_app.config.get("XUI_CLIENT_LIMIT_IP", 2))
+
+    if not user.current_node_id:
+        return jsonify({"success": False, "message": "current_node_id missing"}), 400
+
+    node = Node.query.get(user.current_node_id)
+    if not node:
+        return jsonify({"success": False, "message": "node not found"}), 404
+
+    xui = XUIClient.from_node(node)
+    try:
+        traffics = xui.get_client_traffics(user.email)
+    except XUIClientError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 502
+
+    last_online_ms = traffics.get("lastOnline") or 0
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+
+    # If lastOnline is within this window, treat as "online".
+    window_ms = int(current_app.config.get("USAGE_ONLINE_WINDOW_MS", "120000"))
+    online_ip_count = 0
+    if last_online_ms:
+        try:
+            online_ip_count = 1 if (now_ms - int(last_online_ms)) <= window_ms else 0
+        except Exception:
+            online_ip_count = 0
+
+    return jsonify(
+        {
+            "success": True,
+            "data": {
+                "limit_ip": limit_ip,
+                "online_ip_count": online_ip_count,
+                "online_window_sec": int(window_ms / 1000),
+                "last_online_ms": last_online_ms,
             },
         }
     )

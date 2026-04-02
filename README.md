@@ -55,6 +55,7 @@ cp .env.example .env
 Then edit `.env`:
 - `SECRET_KEY`: set a strong random string
 - `NODES_JSON`: set at least one node config (recommended with SG + JP)
+- `XUI_CLIENT_LIMIT_IP`: max distinct source IPs per client UUID at once in 3X-UI (`limitIp`); default `2`; use `0` for unlimited
 
 4. Run app:
 

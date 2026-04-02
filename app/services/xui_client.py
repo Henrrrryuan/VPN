@@ -20,6 +20,7 @@ class XUIClient:
         inbound_id: int,
         verify_ssl: bool = True,
         public_host: str = "",
+        limit_ip: int = 2,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.username = username
@@ -27,11 +28,20 @@ class XUIClient:
         self.inbound_id = inbound_id
         self.verify_ssl = verify_ssl
         self.public_host = public_host
+        self.limit_ip = max(0, int(limit_ip))
         self.session = requests.Session()
         self.session.verify = self.verify_ssl
 
     @classmethod
     def from_node(cls, node: Node) -> "XUIClient":
+        limit_ip = 2
+        try:
+            from flask import current_app, has_request_context
+
+            if has_request_context():
+                limit_ip = int(current_app.config.get("XUI_CLIENT_LIMIT_IP", 2))
+        except RuntimeError:
+            pass
         return cls(
             base_url=node.base_url,
             username=node.username,
@@ -39,6 +49,7 @@ class XUIClient:
             inbound_id=node.inbound_id,
             verify_ssl=node.verify_ssl,
             public_host=node.public_host or "",
+            limit_ip=limit_ip,
         )
 
     def _login(self) -> None:
@@ -50,6 +61,32 @@ class XUIClient:
             raise XUIClientError(f"x-ui login request failed: {exc}") from exc
         if response.status_code != 200:
             raise XUIClientError(f"x-ui login failed with status {response.status_code}")
+
+    def get_client_traffics(self, email: str) -> dict:
+        """
+        Query x-ui inbound client traffic info by client email.
+
+        Note: x-ui versions vary; this returns exactly what panel provides
+        (commonly includes lastOnline/up/down), but may not include
+        "online IP count" details.
+        """
+        self._login()
+        from urllib.parse import quote
+
+        sub_url = f"{self.base_url}/panel/api/inbounds/getClientTraffics/{quote(email, safe='')}"
+        try:
+            traffic_resp = self.session.get(sub_url, timeout=15)
+        except requests.RequestException as exc:
+            raise XUIClientError(f"x-ui getClientTraffics request failed: {exc}") from exc
+
+        if traffic_resp.status_code != 200:
+            raise XUIClientError(f"x-ui getClientTraffics failed with status {traffic_resp.status_code}")
+
+        data = traffic_resp.json()
+        if not data.get("success"):
+            raise XUIClientError(f"x-ui getClientTraffics error: {data.get('msg', 'unknown error')}")
+
+        return data.get("obj") or {}
 
     def _build_vless_link(self, user_uuid: str, email: str) -> str:
         get_url = f"{self.base_url}/panel/api/inbounds/get/{self.inbound_id}"
@@ -117,7 +154,7 @@ class XUIClient:
                     "id": user_uuid,
                     "email": email,
                     "flow": "xtls-rprx-vision",
-                    "limitIp": 0,
+                    "limitIp": self.limit_ip,
                     "totalGB": 0,
                     "expiryTime": 0,
                     "enable": True,

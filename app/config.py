@@ -14,4 +14,8 @@ class Config:
     XUI_INBOUND_ID = int(os.getenv("XUI_INBOUND_ID", "1"))
     XUI_VERIFY_SSL = os.getenv("XUI_VERIFY_SSL", "true").lower() == "true"
     XUI_PUBLIC_HOST = os.getenv("XUI_PUBLIC_HOST", "")
+    # 3X-UI client limitIp: max distinct source IPs online at once per UUID (0 = unlimited).
+    XUI_CLIENT_LIMIT_IP = int(os.getenv("XUI_CLIENT_LIMIT_IP", "2"))
     NODES_JSON = os.getenv("NODES_JSON", "")
+    # usage estimate window
+    USAGE_ONLINE_WINDOW_MS = int(os.getenv("USAGE_ONLINE_WINDOW_MS", "120000"))

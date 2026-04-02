@@ -18,6 +18,10 @@
     <div><b>Email:</b> <span id="email">-</span></div>
     <div><b>UUID:</b> <span id="uuid">-</span></div>
     <div style="margin-top: 10px;">
+      <b>当前同时在线 IP 数: </b>
+      <span id="online-ip-count">-</span>
+    </div>
+    <div style="margin-top: 10px;">
       <b>Node:</b>
       <select id="node-select"></select>
       <button onclick="switchNode()">Switch Node</button>
@@ -57,6 +61,21 @@
       document.getElementById("uuid").textContent = user.uuid;
       document.getElementById("vless-link").textContent = user.vless_link || "x-ui did not return link yet";
       await loadNodes(user.current_node_id);
+      await loadUsage();
+    }
+
+    async function loadUsage() {
+      const resp = await fetch("/api/auth/usage", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data || !data.data) {
+        document.getElementById("online-ip-count").textContent = "未知";
+        return;
+      }
+      const online = data.data.online_ip_count;
+      const limit = data.data.limit_ip;
+      document.getElementById("online-ip-count").textContent = `${online}/${limit}（估算）`;
     }
 
     async function loadNodes(currentNodeId) {
@@ -97,6 +116,7 @@
       document.getElementById("uuid").textContent = data.data.uuid;
       document.getElementById("vless-link").textContent = data.data.vless_link || "x-ui did not return link yet";
       alert("Node switched.");
+      await loadUsage();
     }
 
     async function copyLink() {
