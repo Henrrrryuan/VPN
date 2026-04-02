@@ -175,7 +175,7 @@ def usage():
     last_online_ms = traffics.get("lastOnline") or 0
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
 
-    # If lastOnline is within this window, treat as "online".
+    # 如果 lastOnline 在该时间窗内，则视为“在线”。
     window_ms = int(current_app.config.get("USAGE_ONLINE_WINDOW_MS", "120000"))
     online_ip_count = 0
     if last_online_ms:

@@ -37,7 +37,7 @@ def bootstrap_nodes_if_needed() -> None:
                     db.session.add(node)
                     created_count += 1
 
-    # Backward-compatible fallback: use legacy single-node env fields.
+    # 兼容旧配置：当 NODES_JSON 未提供时，使用旧版单节点环境变量。
     if created_count == 0:
         base_url = current_app.config.get("XUI_BASE_URL", "")
         username = current_app.config.get("XUI_USERNAME", "")

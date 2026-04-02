@@ -3,11 +3,11 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Virtual environment
+# 虚拟环境
 .venv/
 venv/
 
-# Flask / database
+# Flask / 数据库
 instance/
 *.db
 
@@ -15,5 +15,5 @@ instance/
 .cursor/
 .vscode/
 
-# env
+# 环境变量
 .env

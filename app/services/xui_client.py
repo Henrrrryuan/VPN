@@ -192,5 +192,5 @@ class XUIClient:
             if obj.get("subscriptionUrl"):
                 return user_uuid, obj["subscriptionUrl"]
 
-        # fallback for panel versions not returning subscription URL
+        # 兜底：部分面板版本不返回 subscriptionUrl 时，改为构造标准 VLESS Reality 链接。
         return user_uuid, self._build_vless_link(user_uuid=user_uuid, email=email)

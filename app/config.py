@@ -14,8 +14,8 @@ class Config:
     XUI_INBOUND_ID = int(os.getenv("XUI_INBOUND_ID", "1"))
     XUI_VERIFY_SSL = os.getenv("XUI_VERIFY_SSL", "true").lower() == "true"
     XUI_PUBLIC_HOST = os.getenv("XUI_PUBLIC_HOST", "")
-    # 3X-UI client limitIp: max distinct source IPs online at once per UUID (0 = unlimited).
+    # 3X-UI 客户端 limitIp：每个 UUID 同一时间允许的不同来源公网 IP 数（0 = 不限制）。
     XUI_CLIENT_LIMIT_IP = int(os.getenv("XUI_CLIENT_LIMIT_IP", "2"))
     NODES_JSON = os.getenv("NODES_JSON", "")
-    # usage estimate window
+    # 在线占用估算时间窗
     USAGE_ONLINE_WINDOW_MS = int(os.getenv("USAGE_ONLINE_WINDOW_MS", "120000"))
