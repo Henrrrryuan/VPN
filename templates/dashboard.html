@@ -39,6 +39,7 @@
 
   <script>
     const token = localStorage.getItem("token");
+    let isLoadingUsage = false;
     if (!token) {
       window.location.href = "/";
     }
@@ -65,17 +66,26 @@
     }
 
     async function loadUsage() {
-      const resp = await fetch("/api/auth/usage", {
-        headers: { "Authorization": "Bearer " + token }
-      });
-      const data = await resp.json().catch(() => null);
-      if (!resp.ok || !data || !data.data) {
+      if (isLoadingUsage) return;
+      isLoadingUsage = true;
+      try {
+        const resp = await fetch("/api/auth/usage", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || !data.data) {
+          document.getElementById("online-ip-count").textContent = "未知";
+          return;
+        }
+        const online = data.data.online_ip_count;
+        const limit = data.data.limit_ip;
+        const suffix = data.data.fallback_used ? "（估算）" : "";
+        document.getElementById("online-ip-count").textContent = `${online}/${limit}${suffix}`;
+      } catch (e) {
         document.getElementById("online-ip-count").textContent = "未知";
-        return;
+      } finally {
+        isLoadingUsage = false;
       }
-      const online = data.data.online_ip_count;
-      const limit = data.data.limit_ip;
-      document.getElementById("online-ip-count").textContent = `${online}/${limit}（估算）`;
     }
 
     async function loadNodes(currentNodeId) {
@@ -131,6 +141,7 @@
     }
 
     loadProfile();
+    setInterval(loadUsage, 3000);
   </script>
 </body>
 </html>

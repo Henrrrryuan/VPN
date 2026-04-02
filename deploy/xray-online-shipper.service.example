@@ -1,0 +1,20 @@
+[Unit]
+Description=Xray Online IP Shipper
+After=network.target flask-vpn.service
+Wants=flask-vpn.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/vpn-saas
+Environment="FLASK_INGEST_URL=http://127.0.0.1:5001/api/online/ingest"
+# 必须与 Flask 的 ONLINE_INGEST_KEY 完全一致，否则上报会被 401 拒绝。
+Environment="ONLINE_INGEST_KEY=change-online-ingest-key"
+Environment="XRAY_ACCESS_LOG=/var/log/xray/access.log"
+Environment="NODE_ID=1"
+ExecStart=/opt/vpn-saas/.venv/bin/python /opt/vpn-saas/scripts/xray_online_shipper.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

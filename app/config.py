@@ -19,3 +19,15 @@ class Config:
     NODES_JSON = os.getenv("NODES_JSON", "")
     # 在线占用估算时间窗
     USAGE_ONLINE_WINDOW_MS = int(os.getenv("USAGE_ONLINE_WINDOW_MS", "120000"))
+
+    # 节点侧上报 access log 的采集密钥（请求头：X-Ingest-Key）
+    ONLINE_INGEST_KEY = os.getenv("ONLINE_INGEST_KEY", "")
+
+    # 在线统计窗口（秒）：统计最近 N 秒内出现过的不同来源 IP 数
+    ONLINE_STATS_WINDOW_SEC = int(os.getenv("ONLINE_STATS_WINDOW_SEC", "20"))
+    # 同一来源 IP 在统计窗口内至少出现 N 条事件，才计为在线。
+    ONLINE_MIN_EVENTS_PER_IP = int(os.getenv("ONLINE_MIN_EVENTS_PER_IP", "3"))
+    # 仅当超过该秒数都没有收到在线上报时，才回退到 x-ui 的 lastOnline 估算。
+    ONLINE_FALLBACK_GRACE_SEC = int(os.getenv("ONLINE_FALLBACK_GRACE_SEC", "120"))
+    # 是否启用 x-ui lastOnline 回退估算。精准展示建议关闭（false）。
+    ONLINE_ENABLE_XUI_FALLBACK = os.getenv("ONLINE_ENABLE_XUI_FALLBACK", "false").lower() == "true"
