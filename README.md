@@ -137,11 +137,14 @@ curl -X POST http://127.0.0.1:5000/api/nodes/select \
 在 `.env` 里设置：
 
 - `ONLINE_INGEST_KEY`
-- `ONLINE_STATS_WINDOW_SEC`（默认 180 秒）
+- `ONLINE_STATS_WINDOW_SEC`（默认 30 秒）
+- `ONLINE_MIN_EVENTS_PER_IP`（默认 2；同一 IP 在窗口内需至少 N 条日志才计为在线，过高易长期显示 0）
 
 ### 2) 节点侧运行采集脚本
 
-将 `scripts/xray_online_shipper.py` 复制到 VPS 节点，确保 Xray 已开启 access log（例如 `/var/log/xray/access.log`），然后运行：
+将 `scripts/xray_online_shipper.py` 复制到 VPS 节点，确保 Xray 已开启 access log（例如 `/var/log/xray/access.log`），然后运行。
+
+**注意：** 常见 Xray 行格式为 `时间戳 源IP:端口 accepted tcp:... email: xxx`，**不一定包含英文单词 `from`**。旧版脚本只匹配 `from 1.2.3.4`，会导致整行解析失败、数据库里永远没有事件；请使用当前仓库里的 shipper。
 
 ```bash
 export FLASK_INGEST_URL="http://<你的Flask地址>:5001/api/online/ingest"

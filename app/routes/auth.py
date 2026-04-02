@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request, g, current_app
+from sqlalchemy import func
 
 from app.extensions import bcrypt, db
 from app.models import Node, OnlineIpEvent, User, UserNodeAccess
@@ -167,28 +168,48 @@ def usage():
         return jsonify({"success": False, "message": "node not found"}), 404
 
     # 统计最近 N 秒内出现过的不同来源 IP 数（精确到 distinct IP）。
-    window_sec = int(current_app.config.get("ONLINE_STATS_WINDOW_SEC", 180))
-    cutoff = datetime.now(timezone.utc).timestamp() - window_sec
-    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
+    # 使用 naive UTC 与 SQLite 中存储的 observed_at 一致，避免 aware/naive 比较导致永远匹配不到。
+    window_sec = int(current_app.config.get("ONLINE_STATS_WINDOW_SEC", 30))
+    utc_now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff_dt = utc_now_naive - timedelta(seconds=window_sec)
 
     # 优先使用 access log 上报的数据。为减少偶发残留包误判，要求同一 IP 在窗口内事件数达到门槛。
-    min_events_per_ip = int(current_app.config.get("ONLINE_MIN_EVENTS_PER_IP", 3))
+    min_events_per_ip = int(current_app.config.get("ONLINE_MIN_EVENTS_PER_IP", 2))
+
+    events_raw_total = (
+        db.session.query(func.count(OnlineIpEvent.id))
+        .filter(
+            OnlineIpEvent.user_id == user.id,
+            OnlineIpEvent.observed_at >= cutoff_dt,
+        )
+        .scalar()
+        or 0
+    )
+    distinct_ips_any = (
+        db.session.query(func.count(func.distinct(OnlineIpEvent.src_ip)))
+        .filter(
+            OnlineIpEvent.user_id == user.id,
+            OnlineIpEvent.observed_at >= cutoff_dt,
+        )
+        .scalar()
+        or 0
+    )
+
     ip_rows = (
-        db.session.query(OnlineIpEvent.src_ip, db.func.count(OnlineIpEvent.id).label("event_count"))
+        db.session.query(OnlineIpEvent.src_ip, func.count(OnlineIpEvent.id).label("event_count"))
         .filter(
             OnlineIpEvent.user_id == user.id,
             OnlineIpEvent.observed_at >= cutoff_dt,
         )
         .group_by(OnlineIpEvent.src_ip)
-        .having(db.func.count(OnlineIpEvent.id) >= min_events_per_ip)
+        .having(func.count(OnlineIpEvent.id) >= min_events_per_ip)
         .all()
     )
     online_ip_count = len(ip_rows)
 
     # 若短时间内曾有上报，则窗口内为 0 也保持真实值 0，不立刻回退到估算。
     grace_sec = int(current_app.config.get("ONLINE_FALLBACK_GRACE_SEC", 120))
-    fallback_cutoff = datetime.now(timezone.utc).timestamp() - grace_sec
-    fallback_cutoff_dt = datetime.fromtimestamp(fallback_cutoff, tz=timezone.utc)
+    fallback_cutoff_dt = utc_now_naive - timedelta(seconds=grace_sec)
     has_recent_ingest = (
         db.session.query(OnlineIpEvent.id)
         .filter(
@@ -208,6 +229,7 @@ def usage():
         try:
             traffics = xui.get_client_traffics(user.email)
             last_online_ms = traffics.get("lastOnline") or 0
+            # naive .timestamp() 会按本地时区解释，这里必须用 UTC 与 lastOnline 对齐
             now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
             window_ms = int(current_app.config.get("USAGE_ONLINE_WINDOW_MS", "120000"))
             fallback_used = True
@@ -223,6 +245,9 @@ def usage():
                 "limit_ip": limit_ip,
                 "online_ip_count": online_ip_count,
                 "online_window_sec": window_sec,
+                "min_events_per_ip": min_events_per_ip,
+                "events_in_window": int(events_raw_total),
+                "distinct_ips_any": int(distinct_ips_any),
                 "fallback_used": fallback_used,
                 "last_online_ms": last_online_ms,
             },

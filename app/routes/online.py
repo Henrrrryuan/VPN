@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, jsonify, request
+from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Node, OnlineIpEvent, User
@@ -42,11 +43,12 @@ def ingest():
             continue
 
         email = (item.get("email") or "").strip().lower()
+        uuid_str = (item.get("uuid") or "").strip()
         src_ip = (item.get("src_ip") or "").strip()
         observed_at_raw = (item.get("observed_at") or "").strip()
         node_id = item.get("node_id")
 
-        if not email or not src_ip or not observed_at_raw:
+        if (not email and not uuid_str) or not src_ip or not observed_at_raw:
             rejected += 1
             continue
 
@@ -56,7 +58,14 @@ def ingest():
             rejected += 1
             continue
 
-        user = User.query.filter_by(email=email).first()
+        # SQLite 存 naive UTC，避免与查询窗口比较时出现时区/类型不一致
+        observed_naive = observed_at.astimezone(timezone.utc).replace(tzinfo=None)
+
+        user = None
+        if email:
+            user = User.query.filter_by(email=email).first()
+        if not user and uuid_str:
+            user = User.query.filter(func.lower(User.uuid) == uuid_str.lower()).first()
         if not user:
             rejected += 1
             continue
@@ -73,9 +82,9 @@ def ingest():
             OnlineIpEvent(
                 node_id=node.id if node else None,
                 user_id=user.id,
-                email=email,
+                email=user.email,
                 src_ip=src_ip,
-                observed_at=observed_at.astimezone(timezone.utc),
+                observed_at=observed_naive,
             )
         )
         accepted += 1

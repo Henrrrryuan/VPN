@@ -18,12 +18,35 @@ import os
 import re
 import time
 from datetime import datetime, timezone
+from typing import Optional
 
 import requests
 
 
-EMAIL_RE = re.compile(r"(?:email=|email:)\s*([^\s,]+)")
-SRC_RE = re.compile(r"from\s+(\[[0-9a-fA-F:]+\]|(?:\d{1,3}\.){3}\d{1,3})")
+# 面板里常见：email: user@x.com 或 email=user@x.com
+EMAIL_RE = re.compile(r"(?:email|Email)\s*[=:]\s*([^\s,\]]+)")
+# 客户端 UUID（日志里可能出现，用于 email 未打印时的兜底）
+UUID_RE = re.compile(
+    r"\b([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b"
+)
+# 常见两种格式：
+# 1) from 1.2.3.4 / from [ipv6]
+# 2) 2024/07/16 21:27:57 127.0.0.1:15364 accepted tcp:...（无 "from "，这是多数 Xray 默认 access 行）
+SRC_FROM = re.compile(r"from\s+(\[[0-9a-fA-F:]+\]|(?:\d{1,3}\.){3}\d{1,3})\b")
+SRC_AFTER_TS = re.compile(
+    r"\d{4}/\d{1,2}/\d{1,2}\s+\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\s+"
+    r"(\[[0-9a-fA-F:]+\]|(?:\d{1,3}\.){3}\d{1,3}):\d+\s+accepted\b"
+)
+
+
+def extract_src_ip(line: str) -> Optional[str]:
+    m = SRC_FROM.search(line)
+    if m:
+        return m.group(1).strip("[]")
+    m = SRC_AFTER_TS.search(line)
+    if m:
+        return m.group(1).strip("[]")
+    return None
 
 
 def iso_now() -> str:
@@ -42,14 +65,17 @@ def follow(path: str):
 
 
 def parse_line(line: str):
-    # 尝试从一行日志里提取 email + src ip
-    m_email = EMAIL_RE.search(line)
-    m_ip = SRC_RE.search(line)
-    if not m_email or not m_ip:
+    """返回 (email, src_ip) 或 (None, uuid, src_ip) 由 main 组装为 ingest 字段。"""
+    src_ip = extract_src_ip(line)
+    if not src_ip:
         return None
-    email = m_email.group(1).lower()
-    src_ip = m_ip.group(1).strip("[]")
-    return email, src_ip
+    m_email = EMAIL_RE.search(line)
+    if m_email:
+        return ("email", m_email.group(1).lower(), src_ip)
+    m_uuid = UUID_RE.search(line)
+    if m_uuid:
+        return ("uuid", m_uuid.group(1).lower(), src_ip)
+    return None
 
 
 def main():
@@ -76,8 +102,12 @@ def main():
     for line in follow(access_log):
         parsed = parse_line(line)
         if parsed:
-            email, src_ip = parsed
-            event = {"email": email, "src_ip": src_ip, "observed_at": iso_now()}
+            kind, ident, src_ip = parsed
+            event: dict = {"src_ip": src_ip, "observed_at": iso_now()}
+            if kind == "email":
+                event["email"] = ident
+            else:
+                event["uuid"] = ident
             if node_id_int is not None:
                 event["node_id"] = node_id_int
             batch.append(event)

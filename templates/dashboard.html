@@ -20,6 +20,7 @@
     <div style="margin-top: 10px;">
       <b>当前同时在线 IP 数: </b>
       <span id="online-ip-count">-</span>
+      <div id="online-ip-hint" style="font-size: 12px; color: #666; margin-top: 4px;"></div>
     </div>
     <div style="margin-top: 10px;">
       <b>Node:</b>
@@ -70,19 +71,51 @@
       isLoadingUsage = true;
       try {
         const resp = await fetch("/api/auth/usage", {
-          headers: { "Authorization": "Bearer " + token }
+          cache: "no-store",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Cache-Control": "no-cache"
+          }
         });
         const data = await resp.json().catch(() => null);
+        const hintEl = document.getElementById("online-ip-hint");
         if (!resp.ok || !data || !data.data) {
           document.getElementById("online-ip-count").textContent = "未知";
+          if (hintEl) hintEl.textContent = "";
           return;
         }
         const online = data.data.online_ip_count;
         const limit = data.data.limit_ip;
         const suffix = data.data.fallback_used ? "（估算）" : "";
         document.getElementById("online-ip-count").textContent = `${online}/${limit}${suffix}`;
+        if (hintEl) {
+          const ev = data.data.events_in_window ?? 0;
+          const dist = data.data.distinct_ips_any ?? 0;
+          const minEv = data.data.min_events_per_ip ?? 2;
+          if (!data.data.fallback_used) {
+            if (online === 0 && ev === 0) {
+              hintEl.textContent =
+                "窗口内无上报事件：请确认节点上 shipper 在跑、access.log 有新行；新版已支持「时间戳 源IP:端口 accepted」类日志（不要求含 from）。";
+            } else if (online === 0 && dist > 0) {
+              hintEl.textContent =
+                "已有 " +
+                ev +
+                " 条事件、" +
+                dist +
+                " 个来源 IP，但未达到每 IP 至少 " +
+                minEv +
+                " 条；可在 .env 调低 ONLINE_MIN_EVENTS_PER_IP 或增大 ONLINE_STATS_WINDOW_SEC。";
+            } else {
+              hintEl.textContent = "";
+            }
+          } else {
+            hintEl.textContent = "";
+          }
+        }
       } catch (e) {
         document.getElementById("online-ip-count").textContent = "未知";
+        const h = document.getElementById("online-ip-hint");
+        if (h) h.textContent = "";
       } finally {
         isLoadingUsage = false;
       }
