@@ -41,9 +41,10 @@ def list_nodes():
 def select_node():
     user = g.current_user
     payload = request.get_json(silent=True) or {}
-    node_id = payload.get("node_id")
-    if not node_id:
-        return jsonify({"success": False, "message": "node_id is required"}), 400
+    try:
+        node_id = int(payload.get("node_id"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "node_id must be an integer"}), 400
 
     node = Node.query.filter_by(id=node_id, is_enabled=True).first()
     if not node:

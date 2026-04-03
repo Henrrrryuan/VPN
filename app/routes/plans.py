@@ -64,9 +64,11 @@ def list_my_subscriptions():
 def purchase():
     user = g.current_user
     payload = request.get_json(silent=True) or {}
-    plan_id = payload.get("plan_id")
-    if plan_id is None:
-        return jsonify({"success": False, "message": "plan_id is required"}), 400
+    raw_pid = payload.get("plan_id")
+    try:
+        plan_id = int(raw_pid)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "plan_id must be an integer"}), 400
 
     plan = Plan.query.filter_by(id=plan_id, is_enabled=True).first()
     if not plan:

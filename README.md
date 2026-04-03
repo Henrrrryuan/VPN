@@ -7,25 +7,19 @@ This is a stage-1/2 MVP backend for:
 - Returning token + VLESS/subscription info
 - JWT protected profile API + simple dashboard page
 - Multi-node support (SG/JP) with user node switching
+- Plans + subscriptions (套餐 / 购买记录)
 
 ## Project structure
 
 ```txt
 .
 ├── app
-│   ├── __init__.py
-│   ├── config.py
-│   ├── extensions.py
+│   ├── routes (auth, nodes, plans, pages)
+│   ├── services (auth_service, xui_client, node_service, plan_service, db_bootstrap)
 │   ├── models.py
-│   ├── routes
-│   │   ├── auth.py
-│   │   └── pages.py
-│   └── services
-│       ├── auth_service.py
-│       └── xui_client.py
-├── templates
-│   ├── dashboard.html
-│   └── index.html
+│   └── static/js/landing/contact.js
+├── templates (landing.html, index.html, dashboard.html, _site_urls.html)
+├── deploy/schema.sql
 ├── .env.example
 ├── requirements.txt
 └── run.py
@@ -63,14 +57,14 @@ Then edit `.env`:
 python run.py
 ```
 
-Server starts at `http://127.0.0.1:5000`.
+`python run.py` defaults to `http://127.0.0.1:5001` (override with `PORT`).
 
 ## API examples
 
 ### Register
 
 ```bash
-curl -X POST http://127.0.0.1:5000/api/auth/register \
+curl -X POST http://127.0.0.1:5001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username":"alice",
@@ -82,7 +76,7 @@ curl -X POST http://127.0.0.1:5000/api/auth/register \
 ### Login
 
 ```bash
-curl -X POST http://127.0.0.1:5000/api/auth/login \
+curl -X POST http://127.0.0.1:5001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "identity":"alice",
@@ -93,21 +87,21 @@ curl -X POST http://127.0.0.1:5000/api/auth/login \
 ### Get current user profile (`/api/auth/me`)
 
 ```bash
-curl http://127.0.0.1:5000/api/auth/me \
+curl http://127.0.0.1:5001/api/auth/me \
   -H "Authorization: Bearer <YOUR_TOKEN>"
 ```
 
 ### List enabled nodes
 
 ```bash
-curl http://127.0.0.1:5000/api/nodes \
+curl http://127.0.0.1:5001/api/nodes \
   -H "Authorization: Bearer <YOUR_TOKEN>"
 ```
 
 ### Switch node
 
 ```bash
-curl -X POST http://127.0.0.1:5000/api/nodes/select \
+curl -X POST http://127.0.0.1:5001/api/nodes/select \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <YOUR_TOKEN>" \
   -d '{"node_id": 2}'
@@ -115,8 +109,19 @@ curl -X POST http://127.0.0.1:5000/api/nodes/select \
 
 ## Pages
 
-- `/` login/register page
-- `/dashboard` user panel page (reads JWT from browser localStorage, supports node switching)
+- `/` marketing landing
+- `/login` login / register
+- `/dashboard` user panel (JWT in `localStorage`; nodes + plans)
+
+### Plans API
+
+```bash
+curl http://127.0.0.1:5001/api/plans
+curl http://127.0.0.1:5001/api/plans/subscriptions -H "Authorization: Bearer <TOKEN>"
+curl -X POST http://127.0.0.1:5001/api/plans/purchase \
+  -H "Content-Type: application/json" -H "Authorization: Bearer <TOKEN>" \
+  -d '{"plan_id": 1}'
+```
 
 ## Notes
 

@@ -12,6 +12,8 @@ def generate_access_token(user_id: int) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(hours=expires_hours),
     }
     token = jwt.encode(payload, current_app.config["SECRET_KEY"], algorithm="HS256")
+    if isinstance(token, bytes):
+        return token.decode("utf-8")
     return token
 
 
