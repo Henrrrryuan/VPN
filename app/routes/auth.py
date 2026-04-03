@@ -10,6 +10,44 @@ from app.utils.auth_guard import jwt_required
 auth_bp = Blueprint("auth", __name__)
 
 
+@auth_bp.get("/selftest")
+def auth_selftest():
+    """
+    部署排查：不校验 JWT。浏览器或 curl 访问
+    GET /api/auth/selftest
+    若返回 JSON 且 build 字段存在，说明请求已到本应用 auth 蓝图。
+    """
+    try:
+        n = User.query.count()
+        h = bcrypt.generate_password_hash("p").decode("utf-8")
+        bcrypt_ok = bcrypt.check_password_hash(h, "p")
+        u = User.query.first()
+        jwt_ok = False
+        if u:
+            generate_access_token(u.id)
+            jwt_ok = True
+        return jsonify(
+            {
+                "success": True,
+                "build": "2026-04-03-auth-selftest",
+                "users_count": n,
+                "bcrypt": "ok" if bcrypt_ok else "fail",
+                "jwt": "ok" if jwt_ok else "skip_no_users",
+            }
+        )
+    except Exception as exc:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "build": "2026-04-03-auth-selftest",
+                    "message": str(exc),
+                }
+            ),
+            500,
+        )
+
+
 def _validate_register_payload(data: dict) -> tuple[bool, str]:
     required = ["username", "email", "password"]
     for key in required:

@@ -25,11 +25,32 @@ def _register_api_error_handlers(app: Flask) -> None:
                     ),
                     e.code,
                 )
+            # Nginx 常把 /api/... 错转成正文路径 / → 仅 GET / 时得到 405 HTML
+            if request.method == "POST" and request.content_type and "json" in request.content_type:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": e.description or str(e),
+                            "hint": f"当前 path={request.path}。若你在登录/注册，应为 POST /api/auth/login 或 /api/auth/register；请检查 Nginx 的 proxy_pass 是否保留完整 URI（见 deploy/nginx-proxy.example.conf）。",
+                        }
+                    ),
+                    e.code,
+                )
             return e.get_response()
 
-        app.logger.exception("unhandled exception")
+        app.logger.exception("unhandled exception path=%s method=%s", request.path, request.method)
         if request.path.startswith("/api/"):
             return jsonify({"success": False, "message": str(e)}), 500
+        # POST 到错误路径（常见于 Nginx 把 /api 转发丢路径）时也给 JSON，便于排查
+        if request.method == "POST" and request.content_type and "json" in request.content_type:
+            return jsonify(
+                {
+                    "success": False,
+                    "message": str(e),
+                    "hint": f"当前 path={request.path}；登录接口应为 POST /api/auth/login，请检查 Nginx proxy_pass 是否保留完整 URI。",
+                }
+            ), 500
         raise e
 
 
