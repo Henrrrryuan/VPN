@@ -44,11 +44,11 @@ def select_node():
     try:
         node_id = int(payload.get("node_id"))
     except (TypeError, ValueError):
-        return jsonify({"success": False, "message": "node_id must be an integer"}), 400
+        return jsonify({"success": False, "message": "node_id 必须是整数"}), 400
 
     node = Node.query.filter_by(id=node_id, is_enabled=True).first()
     if not node:
-        return jsonify({"success": False, "message": "node not found"}), 404
+        return jsonify({"success": False, "message": "节点不存在或已停用"}), 404
 
     access = UserNodeAccess.query.filter_by(user_id=user.id, node_id=node.id).first()
     if not access:
@@ -74,7 +74,7 @@ def select_node():
     return jsonify(
         {
             "success": True,
-            "message": "node switched",
+            "message": "已切换节点",
             "data": {
                 "current_node_id": user.current_node_id,
                 "uuid": user.uuid,

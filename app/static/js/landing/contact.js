@@ -8,9 +8,9 @@
   };
 
   var PLAN_LABEL = {
-    basic: "Basic",
-    pro: "Pro",
-    premium: "Premium",
+    basic: "Starter",
+    pro: "Standard",
+    premium: "Pro",
   };
 
   var modal = document.getElementById("contact-modal");

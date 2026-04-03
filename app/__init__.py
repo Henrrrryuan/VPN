@@ -82,8 +82,9 @@ def create_app() -> Flask:
         ensure_schema_compatibility()
         db.create_all()
         bootstrap_nodes_if_needed()
-        from app.services.plan_service import bootstrap_plans_if_needed
+        from app.services.plan_service import bootstrap_plans_if_needed, ensure_canonical_plans
 
         bootstrap_plans_if_needed()
+        ensure_canonical_plans()
 
     return app

@@ -2,6 +2,9 @@ import os
 
 
 class Config:
+    # 可选：部署后在控制台页脚显示，便于确认是否已同步最新代码（例：2026-04-03-1）
+    DEPLOY_TAG = os.getenv("DEPLOY_TAG", "").strip()
+
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///app.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False

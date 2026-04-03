@@ -125,7 +125,7 @@
     } catch {
       return {
         success: false,
-        message: text ? text.slice(0, 500) : "unexpected server response (not JSON)",
+        message: text ? text.slice(0, 500) : "服务器返回了非 JSON 内容",
       };
     }
   }

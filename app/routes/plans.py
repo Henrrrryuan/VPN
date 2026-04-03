@@ -84,6 +84,19 @@ def _local_fallback_dict(user) -> dict | None:
     }
 
 
+def _has_active_plan_local(user) -> bool:
+    s = (
+        Subscription.query.filter_by(user_id=user.id)
+        .order_by(Subscription.started_at.desc())
+        .first()
+    )
+    if not s:
+        return False
+    now = datetime.now(timezone.utc)
+    exp = _aware(s.expires_at)
+    return bool(exp > now and float(s.traffic_remaining_gb or 0) > 0)
+
+
 @plans_bp.get("")
 def list_plans():
     items = Plan.query.filter_by(is_enabled=True).order_by(Plan.id.asc()).all()
@@ -105,6 +118,7 @@ def xui_status():
                         "available": False,
                         "message": "未配置可用节点，请在后台启用至少一个节点。",
                         "local_fallback": _local_fallback_dict(user),
+                        "has_active_plan": _has_active_plan_local(user),
                     },
                 }
             )
@@ -120,6 +134,7 @@ def xui_status():
                         "available": False,
                         "message": f"无法连接 3X-UI 面板：{exc}",
                         "local_fallback": _local_fallback_dict(user),
+                        "has_active_plan": _has_active_plan_local(user),
                     },
                 }
             )
@@ -132,6 +147,7 @@ def xui_status():
                         "available": False,
                         "message": "面板中暂无该邮箱的流量记录（请确认已注册且节点对应同一面板）",
                         "local_fallback": _local_fallback_dict(user),
+                        "has_active_plan": _has_active_plan_local(user),
                     },
                 }
             )
@@ -157,6 +173,11 @@ def xui_status():
         else:
             remaining_bytes = max(0, total - used)
             remaining_display = _format_bytes(remaining_bytes) if remaining_bytes > 0 else "0 B"
+        has_active_plan = bool(
+            not looks_like_new_user
+            and (exp_ms <= 0 or exp_ms > int(datetime.now(timezone.utc).timestamp() * 1000))
+            and (unlimited_traffic or (remaining_bytes is not None and remaining_bytes > 0))
+        )
 
         local_fb = _local_fallback_dict(user)
         return jsonify(
@@ -180,6 +201,7 @@ def xui_status():
                     "total_display": _format_bytes(total) if total > 0 else "不限",
                     "local_fallback": local_fb,
                     "current_plan_name": (local_fb or {}).get("plan_name") if local_fb else None,
+                    "has_active_plan": has_active_plan,
                 },
             }
         )
@@ -192,6 +214,7 @@ def xui_status():
                     "available": False,
                     "message": f"读取用量失败：{exc}",
                     "local_fallback": _local_fallback_dict(user),
+                    "has_active_plan": _has_active_plan_local(user),
                 },
             }
         )

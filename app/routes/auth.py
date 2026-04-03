@@ -1,13 +1,34 @@
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import bcrypt, db
-from app.models import Node, User, UserNodeAccess
+from app.models import Node, Subscription, User, UserNodeAccess
 from app.services.auth_service import generate_access_token
 from app.services.xui_client import XUIClient, XUIClientError
 from app.utils.auth_guard import jwt_required
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _has_active_plan(user: User) -> bool:
+    """后端判定是否有有效套餐（用于前端页面显隐控制）。"""
+    latest = (
+        Subscription.query.filter_by(user_id=user.id)
+        .order_by(Subscription.started_at.desc())
+        .first()
+    )
+    if not latest:
+        return False
+    now = datetime.now(timezone.utc)
+    exp = latest.expires_at
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    not_expired = exp > now
+    # 剩余流量>0 视为有效；若未来支持不限流量可在此扩展条件
+    has_remaining = float(latest.traffic_remaining_gb or 0) > 0
+    return bool(not_expired and has_remaining)
 
 
 @auth_bp.get("/selftest")
@@ -52,9 +73,9 @@ def _validate_register_payload(data: dict) -> tuple[bool, str]:
     required = ["username", "email", "password"]
     for key in required:
         if not data.get(key):
-            return False, f"missing field: {key}"
+            return False, f"缺少字段：{key}"
     if len(data["password"]) < 6:
-        return False, "password must be at least 6 chars"
+        return False, "密码至少 6 位"
     em = str(data.get("email", "")).strip().lower()
     if "@" not in em or not em.split("@", 1)[1]:
         return False, "请输入有效邮箱（需包含 @）"
@@ -74,13 +95,13 @@ def register():
         password = data["password"]
 
         if User.query.filter_by(username=username).first():
-            return jsonify({"success": False, "message": "username already exists"}), 409
+            return jsonify({"success": False, "message": "用户名已被占用"}), 409
         if User.query.filter_by(email=email).first():
-            return jsonify({"success": False, "message": "email already exists"}), 409
+            return jsonify({"success": False, "message": "邮箱已被注册"}), 409
 
         node = Node.query.filter_by(is_enabled=True).order_by(Node.id.asc()).first()
         if not node:
-            return jsonify({"success": False, "message": "no enabled node available"}), 503
+            return jsonify({"success": False, "message": "暂无可用节点，请稍后再试"}), 503
 
         xui = XUIClient.from_node(node)
         try:
@@ -114,7 +135,7 @@ def register():
             jsonify(
                 {
                     "success": True,
-                    "message": "register success",
+                    "message": "注册成功",
                     "data": {
                         "token": token,
                         "user": {
@@ -151,22 +172,22 @@ def login():
         identity = (data.get("identity") or "").strip()
         password = data.get("password") or ""
         if not identity or not password:
-            return jsonify({"success": False, "message": "identity and password required"}), 400
+            return jsonify({"success": False, "message": "请输入用户名/邮箱与密码"}), 400
 
         user = User.query.filter(
             (User.username == identity) | (User.email == identity.lower())
         ).first()
         if not user:
-            return jsonify({"success": False, "message": "invalid credentials"}), 401
+            return jsonify({"success": False, "message": "用户名或密码错误"}), 401
 
         if not bcrypt.check_password_hash(user.password_hash, password):
-            return jsonify({"success": False, "message": "invalid credentials"}), 401
+            return jsonify({"success": False, "message": "用户名或密码错误"}), 401
 
         token = generate_access_token(user.id)
         return jsonify(
             {
                 "success": True,
-                "message": "login success",
+                "message": "登录成功",
                 "data": {
                     "token": token,
                     "user": {
@@ -203,6 +224,7 @@ def me():
                     "uuid": user.uuid,
                     "vless_link": user.vless_link,
                     "current_node_id": user.current_node_id,
+                    "has_active_plan": _has_active_plan(user),
                 }
             },
         }

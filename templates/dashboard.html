@@ -38,7 +38,7 @@
       <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div><span class="text-slate-400">用户名</span> <span id="username" class="ml-2 font-medium text-white">-</span></div>
         <div><span class="text-slate-400">邮箱</span> <span id="email" class="ml-2 font-medium text-white">-</span></div>
-        <div class="sm:col-span-2"><span class="text-slate-400">UUID</span> <span id="uuid" class="ml-2 break-all font-mono text-xs text-slate-200">-</span></div>
+        <div id="uuid-row" class="sm:col-span-2 hidden"><span class="text-slate-400">UUID</span> <span id="uuid" class="ml-2 break-all font-mono text-xs text-slate-200">-</span></div>
       </div>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <label class="text-sm text-slate-400">节点</label>
@@ -58,9 +58,7 @@
       <div id="xui-unavailable" class="mt-4 hidden rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400"></div>
       <div id="xui-content" class="mt-4 hidden grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-          <div class="text-xs text-slate-400">
-            到期时间 <span class="text-[11px] text-slate-500">(北京时间)</span>
-          </div>
+          <div class="text-xs text-slate-400">到期倒计时</div>
           <div id="xui-expiry" class="mt-1 font-semibold text-white">—</div>
         </div>
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
@@ -72,9 +70,38 @@
           <div id="xui-remaining" class="mt-1 font-semibold text-white">—</div>
         </div>
       </div>
+      <div id="xui-traffic-status" class="mt-4 hidden">
+        <div class="flex items-stretch gap-1.5">
+          <div
+            id="xui-battery-shell"
+            class="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2.5 shadow-inner shadow-black/20"
+          >
+            <div class="w-[8.5rem] shrink-0 sm:w-40">
+              <div id="xui-battery-status-text" class="text-xs font-semibold leading-snug text-slate-200">—</div>
+              <div id="xui-battery-sub-text" class="mt-0.5 text-[11px] leading-snug text-slate-400">—</div>
+            </div>
+            <div class="relative h-9 min-w-0 flex-1 overflow-hidden rounded-lg bg-slate-900/80 ring-1 ring-inset ring-white/10">
+              <div
+                id="xui-battery-fill"
+                class="absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500 ease-out"
+                style="width: 0%"
+              ></div>
+              <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-2">
+                <span id="xui-battery-pct" class="text-[11px] font-bold tabular-nums tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">0%</span>
+              </div>
+            </div>
+          </div>
+          <div
+            id="xui-battery-tip"
+            class="hidden w-2 shrink-0 self-center rounded-r-md bg-slate-600 sm:block"
+            style="height: 1.85rem"
+            aria-hidden="true"
+          ></div>
+        </div>
+      </div>
     </section>
 
-    <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+    <section id="plan-section" class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-bold text-white">套餐信息</h2>
         <div class="flex flex-wrap gap-2">
@@ -92,11 +119,10 @@
             onclick="setRechargeUpgradeTab('recharge')"
             class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 shadow-sm transition hover:bg-white/10"
           >
-            续费套餐
+            购买流量包
           </button>
         </div>
       </div>
-
       <div class="mt-4">
         <!-- Upgrade -->
         <div
@@ -105,9 +131,10 @@
         >
           <div class="grid gap-3 sm:grid-cols-3">
             <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div id="upgrade-basic-name" class="text-sm font-semibold text-slate-200">Basic</div>
+              <div id="upgrade-basic-name" class="text-sm font-semibold text-slate-200">Starter</div>
               <div id="upgrade-basic-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-basic-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <div id="upgrade-basic-price" class="mt-3 text-2xl font-extrabold text-white">¥29<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-basic-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-basic"
                 type="button"
@@ -115,14 +142,16 @@
                 onclick="onUpgradeClick(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
-                选择 Basic 套餐
+                选择 Starter 套餐
               </button>
             </div>
 
-            <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div id="upgrade-pro-name" class="text-sm font-semibold text-slate-200">Pro</div>
+            <div class="upgrade-card relative rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Standard</div>
+              <span class="absolute right-3 top-3 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">推荐</span>
               <div id="upgrade-pro-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-pro-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <div id="upgrade-pro-price" class="mt-3 text-2xl font-extrabold text-white">¥49<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-pro-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-pro"
                 type="button"
@@ -130,14 +159,15 @@
                 onclick="onUpgradeClick(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
-                选择 Pro 套餐
+                选择 Standard 套餐
               </button>
             </div>
 
             <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Premium</div>
+              <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Pro</div>
               <div id="upgrade-premium-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-premium-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <div id="upgrade-premium-price" class="mt-3 text-2xl font-extrabold text-white">¥69<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-premium-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-premium"
                 type="button"
@@ -145,7 +175,7 @@
                 onclick="onUpgradeClick(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
-                选择 Premium 套餐
+                选择 Pro 套餐
               </button>
             </div>
           </div>
@@ -159,8 +189,23 @@
         >
           <div class="grid gap-3 sm:grid-cols-3">
             <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div class="text-sm font-semibold text-slate-200">+100GB</div>
-              <div id="recharge-price-100" class="mt-2 text-2xl font-extrabold text-white">$—</div>
+              <div class="text-sm font-semibold text-slate-200">流量包 S · +50GB</div>
+              <div id="recharge-price-50" class="mt-2 text-2xl font-extrabold text-white">¥15</div>
+              <button
+                id="recharge-btn-50"
+                type="button"
+                data-traffic-gb="50"
+                onclick="onRechargeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                购买
+              </button>
+            </div>
+
+            <div class="recharge-card relative rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <span class="absolute right-3 top-3 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">推荐</span>
+              <div class="text-sm font-semibold text-slate-200">流量包 M · +100GB </div>
+              <div id="recharge-price-100" class="mt-2 text-2xl font-extrabold text-white">¥25</div>
               <button
                 id="recharge-btn-100"
                 type="button"
@@ -173,26 +218,12 @@
             </div>
 
             <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div class="text-sm font-semibold text-slate-200">+200GB</div>
-              <div id="recharge-price-200" class="mt-2 text-2xl font-extrabold text-white">$—</div>
+              <div class="text-sm font-semibold text-slate-200">流量包 L · +200GB</div>
+              <div id="recharge-price-200" class="mt-2 text-2xl font-extrabold text-white">¥45</div>
               <button
                 id="recharge-btn-200"
                 type="button"
                 data-traffic-gb="200"
-                onclick="onRechargeClick(this)"
-                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
-              >
-                购买
-              </button>
-            </div>
-
-            <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div class="text-sm font-semibold text-slate-200">+500GB</div>
-              <div id="recharge-price-500" class="mt-2 text-2xl font-extrabold text-white">$—</div>
-              <button
-                id="recharge-btn-500"
-                type="button"
-                data-traffic-gb="500"
                 onclick="onRechargeClick(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
@@ -205,13 +236,33 @@
       </div>
     </section>
 
-    <section class="rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
+    <section id="vless-section" class="relative rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
       <h2 class="text-lg font-bold text-white">订阅链接 (VLESS)</h2>
-      <div id="vless-link" class="mt-3 break-all rounded-xl border border-white/10 bg-slate-950/40 p-4 font-mono text-xs text-slate-200">加载中…</div>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button type="button" onclick="copyLink()" class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95">复制链接</button>
+      <div id="vless-content" class="transition-all duration-300 ease-out">
+        <div id="vless-link" class="mt-3 break-all rounded-xl border border-white/10 bg-slate-950/40 p-4 font-mono text-xs text-slate-200">加载中…</div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="copy-link-btn" type="button" onclick="copyLink()" class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95">复制链接</button>
+        </div>
+      </div>
+      <div
+        id="vless-lock-overlay"
+        class="hidden absolute inset-0 z-10 flex items-center justify-center rounded-[1.5rem] bg-slate-950/55 backdrop-blur-[1px]"
+      >
+        <div class="mx-4 w-full max-w-lg rounded-2xl border border-white/15 bg-slate-950/70 p-5 text-center">
+          <div class="text-lg font-semibold text-white">🔒 订阅未解锁</div>
+          <p class="mt-2 text-sm text-slate-200">购买套餐后即可获取UUID和订阅链接</p>
+          <div class="mt-4">
+            <button type="button" onclick="goBuyNow()" class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500">
+              立即解锁
+            </button>
+          </div>
+        </div>
       </div>
     </section>
+
+    {% if config.DEPLOY_TAG %}
+    <p class="text-center text-[11px] text-slate-600">部署版本 {{ config.DEPLOY_TAG }}</p>
+    {% endif %}
   </main>
 
   <script>
@@ -225,6 +276,17 @@
   // 当前套餐对应的总流量上限（GB），由 /api/plans/xui-status 的 total_bytes 推断
   let currentPlanLimitGb = null;
   let bannerTimer = null;
+  let expiryCountdownTimer = null;
+  /** none | unlimited | live（面板在线，每分钟递减） | paused（面板离线，冻结剩余） */
+  let expiryMode = "none";
+  let expiryLiveTargetMs = null;
+  let expiryPausedRemainMs = null;
+  /** 面板离线且仅本地订单兜底时，只生成一次冻结倒计时，避免每 30s 刷新把“暂停”又往前推 */
+  let expiryOfflineLocalSeeded = false;
+  // 后端判定：是否有有效套餐（刷新后仍生效）
+  let hasActivePlan = false;
+  let profileUuid = "";
+  let profileVlessLink = "";
 
   function apiPath(path) {
     const meta = document.querySelector('meta[name="api-base"]');
@@ -233,46 +295,177 @@
     return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
   }
 
+  function applyAccessGate() {
+    var uuidRow = document.getElementById("uuid-row");
+    var vlessContent = document.getElementById("vless-content");
+    var vlessOverlay = document.getElementById("vless-lock-overlay");
+    var copyBtn = document.getElementById("copy-link-btn");
+    var uuidEl = document.getElementById("uuid");
+    var vlessEl = document.getElementById("vless-link");
+    if (uuidRow) uuidRow.classList.toggle("hidden", !hasActivePlan);
+    if (vlessOverlay) vlessOverlay.classList.toggle("hidden", hasActivePlan);
+    if (vlessContent) {
+      if (hasActivePlan) {
+        vlessContent.classList.remove("blur-[2px]", "pointer-events-none", "opacity-40");
+        vlessContent.classList.add("opacity-100");
+      } else {
+        vlessContent.classList.add("blur-[2px]", "pointer-events-none", "opacity-40");
+        vlessContent.classList.remove("opacity-100");
+      }
+    }
+    if (copyBtn) {
+      copyBtn.disabled = !hasActivePlan;
+      copyBtn.classList.toggle("opacity-50", !hasActivePlan);
+      copyBtn.classList.toggle("cursor-not-allowed", !hasActivePlan);
+    }
+    if (!hasActivePlan) {
+      if (uuidEl) uuidEl.textContent = "-";
+      if (vlessEl) vlessEl.textContent = "—";
+      return;
+    }
+    if (uuidEl) uuidEl.textContent = profileUuid || "—";
+    if (vlessEl) vlessEl.textContent = profileVlessLink || "—";
+  }
+
   function authHeaders(json) {
     const h = { Authorization: "Bearer " + token };
     if (json) h["Content-Type"] = "application/json";
     return h;
   }
 
-  function formatBeijingFromMs(ms) {
-    const n = Number(ms);
-    if (!n || n <= 0) return "不限";
-    const dt = new Date(n);
-    if (Number.isNaN(dt.getTime())) return "—";
-    // 明确指定时区：面向中国客户显示北京时间
-    return new Intl.DateTimeFormat("zh-CN", {
-      timeZone: "Asia/Shanghai",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    })
-      .format(dt)
-      .replace(/\//g, "-");
+  function stopExpiryCountdown() {
+    if (expiryCountdownTimer) {
+      clearInterval(expiryCountdownTimer);
+      expiryCountdownTimer = null;
+    }
   }
 
-  function formatBeijingFromIso(iso) {
-    if (!iso) return "—";
-    const dt = new Date(iso);
-    if (Number.isNaN(dt.getTime())) return "—";
-    return new Intl.DateTimeFormat("zh-CN", {
-      timeZone: "Asia/Shanghai",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    })
-      .format(dt)
-      .replace(/\//g, "-");
+  var EXPIRY_STYLE_NORMAL = "mt-1 font-semibold text-white";
+  var EXPIRY_STYLE_URGENT =
+    "mt-1 font-semibold text-red-400 animate-pulse drop-shadow-[0_0_10px_rgba(248,113,113,0.35)]";
+  var EXPIRY_STYLE_EXPIRED = "mt-1 font-semibold text-red-300 animate-pulse";
+
+  /** 仅精确到分钟（不显示秒） */
+  function formatDurationMinutes(ms) {
+    var totalMin = Math.max(0, Math.floor(ms / 60000));
+    var days = Math.floor(totalMin / (60 * 24));
+    var hours = Math.floor((totalMin % (60 * 24)) / 60);
+    var minutes = totalMin % 60;
+    return days + "天 " + hours + "小时 " + minutes + "分";
+  }
+
+  function renderExpiryView() {
+    var expEl = document.getElementById("xui-expiry");
+    if (!expEl) return;
+    var urgentMs = 24 * 60 * 60 * 1000;
+    if (expiryMode === "none") {
+      expEl.className = EXPIRY_STYLE_NORMAL;
+      expEl.textContent = "—";
+      return;
+    }
+    if (expiryMode === "unlimited") {
+      expEl.className = EXPIRY_STYLE_NORMAL;
+      expEl.textContent = "不限";
+      return;
+    }
+    if (expiryMode === "paused") {
+      var pr = Number(expiryPausedRemainMs);
+      if (!Number.isFinite(pr)) {
+        expEl.className = EXPIRY_STYLE_NORMAL;
+        expEl.textContent = "—";
+        return;
+      }
+      if (pr <= 0) {
+        expEl.className = EXPIRY_STYLE_EXPIRED;
+        expEl.textContent = "已到期";
+        return;
+      }
+      expEl.textContent = formatDurationMinutes(pr) + "（已暂停）";
+      if (pr < urgentMs) {
+        expEl.className = EXPIRY_STYLE_URGENT;
+      } else {
+        expEl.className = EXPIRY_STYLE_NORMAL;
+      }
+      return;
+    }
+    if (expiryMode !== "live" || !expiryLiveTargetMs) {
+      expEl.className = EXPIRY_STYLE_NORMAL;
+      expEl.textContent = "—";
+      return;
+    }
+    var leftMs = expiryLiveTargetMs - Date.now();
+    if (leftMs <= 0) {
+      expEl.className = EXPIRY_STYLE_EXPIRED;
+      expEl.textContent = "已到期";
+      stopExpiryCountdown();
+      return;
+    }
+    expEl.textContent = formatDurationMinutes(leftMs);
+    if (leftMs < urgentMs) {
+      expEl.className = EXPIRY_STYLE_URGENT;
+    } else {
+      expEl.className = EXPIRY_STYLE_NORMAL;
+    }
+  }
+
+  function setExpiryNone() {
+    stopExpiryCountdown();
+    expiryMode = "none";
+    expiryLiveTargetMs = null;
+    expiryPausedRemainMs = null;
+    renderExpiryView();
+  }
+
+  function setExpiryUnlimited() {
+    stopExpiryCountdown();
+    expiryMode = "unlimited";
+    expiryLiveTargetMs = null;
+    expiryPausedRemainMs = null;
+    renderExpiryView();
+  }
+
+  /** 面板在线：与服务器到期时间对齐，每分钟刷新一次 */
+  function setExpiryLive(targetMs) {
+    stopExpiryCountdown();
+    var ms = Number(targetMs);
+    if (!Number.isFinite(ms) || ms <= 0) {
+      setExpiryNone();
+      return;
+    }
+    expiryOfflineLocalSeeded = false;
+    expiryMode = "live";
+    expiryLiveTargetMs = ms;
+    expiryPausedRemainMs = null;
+    renderExpiryView();
+    expiryCountdownTimer = setInterval(renderExpiryView, 60000);
+  }
+
+  /** 面板离线：冻结剩余时长，本地时间不再递减 */
+  function setExpiryPaused(remainMs) {
+    stopExpiryCountdown();
+    var r = Number(remainMs);
+    if (!Number.isFinite(r) || r < 0) {
+      setExpiryNone();
+      return;
+    }
+    expiryMode = "paused";
+    expiryLiveTargetMs = null;
+    expiryPausedRemainMs = r;
+    renderExpiryView();
+  }
+
+  /** 从“在线倒计时”切到离线暂停（网络错误、面板不可用时保留上次读数） */
+  function snapshotPauseFromLiveElseNone() {
+    if (expiryMode === "live" && expiryLiveTargetMs != null) {
+      var left = expiryLiveTargetMs - Date.now();
+      setExpiryPaused(Math.max(0, left));
+      return;
+    }
+    // 已是暂停/不限：保持展示，不因一次请求失败被清空
+    if (expiryMode === "paused" || expiryMode === "unlimited") {
+      return;
+    }
+    setExpiryNone();
   }
 
   function showBanner(kind, msg) {
@@ -295,6 +488,126 @@
     document.getElementById("banner").classList.add("hidden");
   }
 
+  function hideTrafficBattery() {
+    var root = document.getElementById("xui-traffic-status");
+    if (root) root.classList.add("hidden");
+  }
+
+  /** 不限流量：满格绿色 */
+  function setTrafficBatteryUnlimited() {
+    var root = document.getElementById("xui-traffic-status");
+    var shell = document.getElementById("xui-battery-shell");
+    var fill = document.getElementById("xui-battery-fill");
+    var pctEl = document.getElementById("xui-battery-pct");
+    var label = document.getElementById("xui-battery-status-text");
+    var subLabel = document.getElementById("xui-battery-sub-text");
+    var tip = document.getElementById("xui-battery-tip");
+    if (!root || !shell || !fill || !pctEl || !label || !subLabel) return;
+    root.classList.remove("hidden");
+    label.textContent = "不限时流量充足";
+    subLabel.textContent = "无需担心";
+    pctEl.textContent = "100%";
+    fill.style.width = "100%";
+    fill.className =
+      "absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500 ease-out";
+    shell.className =
+      "flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-emerald-500/45 bg-emerald-500/10 px-3 py-2.5 shadow-[0_0_18px_rgba(16,185,129,0.12)]";
+    label.className = "text-xs font-semibold leading-snug text-emerald-200";
+    subLabel.className = "mt-0.5 text-[11px] leading-snug text-emerald-300/90";
+    pctEl.className =
+      "text-[11px] font-bold tabular-nums tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]";
+    if (tip) {
+      tip.className =
+        "hidden w-2 shrink-0 self-center rounded-r-md bg-emerald-500/70 sm:block";
+    }
+  }
+
+  /**
+   * 有限流量：剩余/总量 → 0%–100% 电池条
+   * @param {number} total - 与 remaining 同单位（字节或 GB）
+   * @param {number} remaining
+   */
+  function setTrafficBatteryFinite(total, remaining) {
+    var root = document.getElementById("xui-traffic-status");
+    var shell = document.getElementById("xui-battery-shell");
+    var fill = document.getElementById("xui-battery-fill");
+    var pctEl = document.getElementById("xui-battery-pct");
+    var label = document.getElementById("xui-battery-status-text");
+    var subLabel = document.getElementById("xui-battery-sub-text");
+    var tip = document.getElementById("xui-battery-tip");
+    if (!root || !shell || !fill || !pctEl || !label || !subLabel) return;
+    var t = Number(total);
+    var r = Number(remaining);
+    if (!Number.isFinite(t) || t <= 0 || !Number.isFinite(r) || r < 0) {
+      hideTrafficBattery();
+      return;
+    }
+    var ratio = r / t;
+    var pct = Math.min(100, Math.max(0, Math.round(ratio * 100)));
+    var statusText;
+    var subText;
+    var tier; // 'green' | 'amber' | 'red'
+    if (ratio === 0) {
+      statusText = "流量已用尽";
+      subText = "当前无法使用，请立即续费";
+      tier = "red";
+    } else if (ratio <= 0.1) {
+      statusText = "流量严重不足";
+      subText = "建议立即续费，避免中断";
+      tier = "red";
+    } else if (ratio <= 0.3) {
+      statusText = "流量即将用尽";
+      subText = "建议提前续费";
+      tier = "amber";
+    } else if (ratio <= 0.5) {
+      statusText = "流量正常";
+      subText = "可继续使用";
+      tier = "green";
+    } else {
+      statusText = "流量充足";
+      subText = "无需担心";
+      tier = "green";
+    }
+    var fillGrad =
+      tier === "green"
+        ? "from-emerald-600 to-emerald-400"
+        : tier === "amber"
+          ? "from-amber-600 to-amber-400"
+          : "from-red-600 to-red-400";
+    var shellBorder =
+      tier === "green"
+        ? "border-emerald-500/45 bg-emerald-500/10 shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+        : tier === "amber"
+          ? "border-amber-500/45 bg-amber-500/10 shadow-[0_0_18px_rgba(245,158,11,0.12)]"
+          : "border-red-500/45 bg-red-500/10 shadow-[0_0_18px_rgba(239,68,68,0.12)]";
+    var labelColor =
+      tier === "green" ? "text-emerald-200" : tier === "amber" ? "text-amber-200" : "text-red-200";
+    var tipBg =
+      tier === "green"
+        ? "bg-emerald-500/70"
+        : tier === "amber"
+          ? "bg-amber-500/70"
+          : "bg-red-500/70";
+    root.classList.remove("hidden");
+    label.textContent = statusText;
+    subLabel.textContent = subText;
+    pctEl.textContent = pct + "%";
+    fill.style.width = pct + "%";
+    fill.className =
+      "absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r " + fillGrad + " transition-[width] duration-500 ease-out";
+    shell.className =
+      "flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 " + shellBorder;
+    label.className = "text-xs font-semibold leading-snug " + labelColor;
+    subLabel.className =
+      "mt-0.5 text-[11px] leading-snug " +
+      (tier === "green" ? "text-emerald-300/90" : tier === "amber" ? "text-amber-300/90" : "text-red-300/90");
+    pctEl.className =
+      "text-[11px] font-bold tabular-nums tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]";
+    if (tip) {
+      tip.className = "hidden w-2 shrink-0 self-center rounded-r-md sm:block " + tipBg;
+    }
+  }
+
   async function loadXuiStatus() {
     const hint = document.getElementById("xui-sync-hint");
     const unav = document.getElementById("xui-unavailable");
@@ -310,6 +623,8 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
+      snapshotPauseFromLiveElseNone();
+      hideTrafficBattery();
       return;
     }
     let body;
@@ -327,6 +642,8 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
+      snapshotPauseFromLiveElseNone();
+      hideTrafficBattery();
       return;
     }
     const d = body && body.data;
@@ -337,22 +654,46 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
+      snapshotPauseFromLiveElseNone();
+      hideTrafficBattery();
       return;
     }
 
     function fillFromLocal(fb) {
-      var expEl = document.getElementById("xui-expiry");
       var totEl = document.getElementById("xui-total");
       var remEl = document.getElementById("xui-remaining");
-      if (expEl)
-        expEl.textContent = formatBeijingFromIso(fb.expires_at_iso);
+      {
+        var localExpMs = fb.expires_at_iso ? new Date(fb.expires_at_iso).getTime() : NaN;
+        // 刚从面板在线掉线：冻结「上次在线」的到期点（与面板一致）
+        if (expiryMode === "live" && expiryLiveTargetMs != null) {
+          setExpiryPaused(Math.max(0, expiryLiveTargetMs - Date.now()));
+          expiryOfflineLocalSeeded = true;
+        } else if (Number.isFinite(localExpMs) && localExpMs > 0) {
+          if (!expiryOfflineLocalSeeded) {
+            setExpiryPaused(Math.max(0, localExpMs - Date.now()));
+            expiryOfflineLocalSeeded = true;
+          }
+        } else {
+          setExpiryNone();
+        }
+      }
       if (totEl) totEl.textContent = fb.traffic_limit_gb != null ? fb.traffic_limit_gb + " GB（订单）" : "—";
       if (remEl)
         remEl.textContent =
           fb.traffic_remaining_gb != null ? Number(fb.traffic_remaining_gb).toFixed(2) + " GB（订单）" : "—";
+      // 后端已返回 local_fallback 时，也按后端 has_active_plan 结果决定显隐
+      if (fb.traffic_limit_gb != null && fb.traffic_remaining_gb != null) {
+        setTrafficBatteryFinite(Number(fb.traffic_limit_gb), Number(fb.traffic_remaining_gb));
+      } else {
+        hideTrafficBattery();
+      }
     }
 
     if (!d.available && d.local_fallback) {
+      if (typeof d.has_active_plan === "boolean") {
+        hasActivePlan = d.has_active_plan;
+        applyAccessGate();
+      }
       if (unav) {
         unav.classList.remove("hidden");
         unav.textContent =
@@ -368,31 +709,43 @@
     }
 
     if (!d.available) {
+      if (typeof d.has_active_plan === "boolean") {
+        hasActivePlan = d.has_active_plan;
+        applyAccessGate();
+      }
       if (unav) {
         unav.classList.remove("hidden");
         unav.textContent = (d && d.message) || "无数据";
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
+      snapshotPauseFromLiveElseNone();
+      hideTrafficBattery();
       return;
     }
 
     if (unav) unav.classList.add("hidden");
     if (content) content.classList.remove("hidden");
     if (hint) hint.textContent = "已同步 " + new Date().toLocaleTimeString();
-    var expEl = document.getElementById("xui-expiry");
     var totEl = document.getElementById("xui-total");
     var remEl = document.getElementById("xui-remaining");
     // 新注册但尚未开通套餐的用户：total_bytes=0 且 used_bytes=0。
     // 对这类用户，UI 不应显示为「不限」，而是清晰地展示为 0。
     var looksNewUser = (!d.total_bytes || d.total_bytes <= 0) && (!d.used_bytes || d.used_bytes <= 0);
-    if (expEl) {
-      if (looksNewUser) {
-        expEl.textContent = "—";
-      } else {
-        expEl.textContent = d.unlimited_expiry ? "不限" : formatBeijingFromMs(d.expiry_time_ms);
-      }
+    if (looksNewUser) {
+      setExpiryNone();
+      hasActivePlan = false;
+    } else if (d.unlimited_expiry) {
+      setExpiryUnlimited();
+      hasActivePlan = true;
+    } else {
+      setExpiryLive(d.expiry_time_ms);
+      hasActivePlan = true;
     }
+    if (typeof d.has_active_plan === "boolean") {
+      hasActivePlan = d.has_active_plan;
+    }
+    applyAccessGate();
     if (totEl) {
       if (looksNewUser) {
         totEl.textContent = "0 B";
@@ -406,6 +759,13 @@
       } else {
         remEl.textContent = d.remaining_display != null ? d.remaining_display : "—";
       }
+    }
+    if (looksNewUser) {
+      hideTrafficBattery();
+    } else if (d.unlimited_traffic) {
+      setTrafficBatteryUnlimited();
+    } else {
+      setTrafficBatteryFinite(d.total_bytes, d.remaining_bytes);
     }
 
     // 只有在 total>0 且不是“新用户未开通”时才推断当前套餐的流量档位
@@ -433,6 +793,41 @@
     return x.toFixed(x % 1 === 0 ? 0 : 2).replace(/\\.00$/, "") + "GB/月";
   }
 
+  /** 与定价表一致的固定价（月 / 季 / 半年 / 年），不按公式推算 */
+  var DISPLAY_PLAN_PRICES = {
+    starter: { monthly: 29, quarter: 79, half: 149, year: 279, displayGb: 80 },
+    standard: { monthly: 49, quarter: 129, half: 249, year: 469, displayGb: 150 },
+    pro: { monthly: 69, quarter: 179, half: 349, year: 669, displayGb: 200 },
+  };
+
+  function renderBillingCycleCards(container, p) {
+    if (!container || !p) return;
+    var m = Number(p.monthly);
+    var q = Number(p.quarter);
+    var h = Number(p.half);
+    var y = Number(p.year);
+    if (![m, q, h, y].every(function (x) { return Number.isFinite(x) && x > 0; })) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML = [
+      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">月付</div><div class="mt-1 font-semibold text-white">¥' + m + "</div></div>",
+      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">季付 <span class=\"text-[10px]\">(-10%)</span></div><div class="mt-1 font-semibold text-white">¥' + q + "</div></div>",
+      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">半年 <span class=\"text-[10px]\">(-15%)</span></div><div class="mt-1 font-semibold text-white">¥' + h + "</div></div>",
+      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">年付 <span class=\"text-[10px]\">(-20%)</span></div><div class="mt-1 font-semibold text-white">¥' + y + "</div></div>"
+    ].join("");
+  }
+
+  function formatUpgradeMonthlyPriceEl(el, monthlyYuan) {
+    if (!el) return;
+    var n = Number(monthlyYuan);
+    if (!Number.isFinite(n) || n <= 0) {
+      el.textContent = "—";
+      return;
+    }
+    el.innerHTML = "¥" + n + '<span class="ml-1 text-sm font-semibold text-slate-400">/月</span>';
+  }
+
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -456,26 +851,35 @@
     if (!panelRecharge || !panelUpgrade || !tabRechargeBtn || !tabUpgradeBtn) return;
 
     const isRecharge = tab === "recharge";
+    // 选中态必须去掉 hover:bg-white/10，否则指针仍在按钮上时 hover 会盖住蓝色背景
+    const activeTabClasses = ["bg-indigo-500/90", "text-white", "shadow-lg", "shadow-indigo-500/20", "hover:bg-indigo-500"];
+    const inactiveTabClasses = ["border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm", "hover:bg-white/10"];
     // Panel animation: opacity + translate + max-height
     if (isRecharge) {
       panelRecharge.classList.remove("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
       panelRecharge.classList.add("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
       panelUpgrade.classList.remove("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
       panelUpgrade.classList.add("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
-      tabRechargeBtn.classList.add("bg-indigo-500/90", "text-white", "shadow-lg");
-      tabRechargeBtn.classList.remove("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
-      tabUpgradeBtn.classList.add("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
-      tabUpgradeBtn.classList.remove("bg-indigo-500/90", "text-white", "shadow-lg");
+      inactiveTabClasses.forEach((c) => tabRechargeBtn.classList.remove(c));
+      activeTabClasses.forEach((c) => tabRechargeBtn.classList.add(c));
+      activeTabClasses.forEach((c) => tabUpgradeBtn.classList.remove(c));
+      inactiveTabClasses.forEach((c) => tabUpgradeBtn.classList.add(c));
     } else {
       panelUpgrade.classList.remove("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
       panelUpgrade.classList.add("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
       panelRecharge.classList.remove("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
       panelRecharge.classList.add("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
-      tabUpgradeBtn.classList.add("bg-indigo-500/90", "text-white", "shadow-lg");
-      tabUpgradeBtn.classList.remove("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
-      tabRechargeBtn.classList.add("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
-      tabRechargeBtn.classList.remove("bg-indigo-500/90", "text-white", "shadow-lg");
+      inactiveTabClasses.forEach((c) => tabUpgradeBtn.classList.remove(c));
+      activeTabClasses.forEach((c) => tabUpgradeBtn.classList.add(c));
+      activeTabClasses.forEach((c) => tabRechargeBtn.classList.remove(c));
+      inactiveTabClasses.forEach((c) => tabRechargeBtn.classList.add(c));
     }
+  };
+
+  window.goBuyNow = function () {
+    window.setRechargeUpgradeTab("upgrade");
+    var sec = document.getElementById("plan-section");
+    if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   async function initRechargeUpgradeCards() {
@@ -487,100 +891,93 @@
       const basic = plans.find((p) => p.name === "Basic") || {
         id: 1,
         name: "Basic",
-        price: 9.99,
-        traffic_limit_gb: 100,
+        price: 29,
+        traffic_limit_gb: 80,
       };
       const pro = plans.find((p) => p.name === "Pro") || {
         id: 2,
         name: "Pro",
-        price: 19.99,
-        traffic_limit_gb: 300,
+        price: 49,
+        traffic_limit_gb: 150,
       };
       const premium = plans.find((p) => p.name === "Premium") || {
         id: 3,
         name: "Premium",
-        price: 39.99,
-        traffic_limit_gb: 1000,
+        price: 69,
+        traffic_limit_gb: 200,
       };
 
-      // Recharge pricing: proportional to Pro (price / traffic_limit_gb)
-      const proPricePerGb = pro && pro.traffic_limit_gb ? Number(pro.price) / Number(pro.traffic_limit_gb) : 0;
-      const rechargeOptions = [100, 200, 500];
-      rechargeOptions.forEach((gb) => {
-        const el = document.getElementById("recharge-price-" + gb);
+      // 流量包定价（与页面展示一致）
+      var RECHARGE_CNY = { 50: 15, 100: 25, 200: 45 };
+      [50, 100, 200].forEach(function (gb) {
+        var el = document.getElementById("recharge-price-" + gb);
         if (!el) return;
-        const price = proPricePerGb > 0 ? proPricePerGb * gb : NaN;
-        el.textContent = formatMoneyUSD(price);
+        el.textContent = "¥" + RECHARGE_CNY[gb];
       });
 
-      // Upgrade cards
+      var P0 = DISPLAY_PLAN_PRICES.starter;
+      var P1 = DISPLAY_PLAN_PRICES.standard;
+      var P2 = DISPLAY_PLAN_PRICES.pro;
+
+      // Upgrade cards：展示价与流量以定价表为准；plan_id 仍来自后端
       const basicTraffic = document.getElementById("upgrade-basic-traffic");
       const basicPrice = document.getElementById("upgrade-basic-price");
+      const basicCycles = document.getElementById("upgrade-basic-cycles");
       const basicBtn = document.getElementById("upgrade-btn-basic");
       if (basicTraffic && basicPrice && basicBtn) {
-        basicTraffic.textContent = formatTrafficMonthly(basic.traffic_limit_gb);
-        basicPrice.textContent = formatMoneyUSD(basic.price);
+        basicTraffic.textContent = formatTrafficMonthly(P0.displayGb);
+        formatUpgradeMonthlyPriceEl(basicPrice, P0.monthly);
+        renderBillingCycleCards(basicCycles, P0);
         basicBtn.setAttribute("data-plan-id", String(basic.id || 1));
       }
 
       const proTraffic = document.getElementById("upgrade-pro-traffic");
       const proPrice = document.getElementById("upgrade-pro-price");
+      const proCycles = document.getElementById("upgrade-pro-cycles");
       const proBtn = document.getElementById("upgrade-btn-pro");
       if (proTraffic && proPrice && proBtn) {
-        proTraffic.textContent = formatTrafficMonthly(pro.traffic_limit_gb);
-        proPrice.textContent = formatMoneyUSD(pro.price);
+        proTraffic.textContent = formatTrafficMonthly(P1.displayGb);
+        formatUpgradeMonthlyPriceEl(proPrice, P1.monthly);
+        renderBillingCycleCards(proCycles, P1);
         proBtn.setAttribute("data-plan-id", String(pro.id || 2));
       }
 
       const premiumTraffic = document.getElementById("upgrade-premium-traffic");
       const premiumPrice = document.getElementById("upgrade-premium-price");
+      const premiumCycles = document.getElementById("upgrade-premium-cycles");
       const premiumBtn = document.getElementById("upgrade-btn-premium");
       if (premiumTraffic && premiumPrice && premiumBtn) {
-        premiumTraffic.textContent = formatTrafficMonthly(premium.traffic_limit_gb);
-        premiumPrice.textContent = formatMoneyUSD(premium.price);
+        premiumTraffic.textContent = formatTrafficMonthly(P2.displayGb);
+        formatUpgradeMonthlyPriceEl(premiumPrice, P2.monthly);
+        renderBillingCycleCards(premiumCycles, P2);
         premiumBtn.setAttribute("data-plan-id", String(premium.id || 3));
       }
 
-      // 根据当前 X-UI 面板上的总流量（GB）高亮当前套餐，并标记“当前套餐”标签 + 禁用按钮
+      // 根据当前面板总流量（GB）与定价表档位比对「当前套餐」
       const curGb = currentPlanLimitGb;
-      function applyCurrentPlanByLimit(planObj, btn, label) {
-        if (!btn || !planObj || !planObj.traffic_limit_gb || !curGb) {
-          if (btn) {
-            btn.disabled = false;
-            btn.classList.remove("opacity-70", "cursor-default");
-            if (label) btn.textContent = label;
-          }
-          return;
-        }
-        const planGb = Number(planObj.traffic_limit_gb);
-        const match = Math.abs(planGb - curGb) < 0.01;
+      function isCurrentDisplayGb(displayGb) {
+        if (curGb == null || curGb === "" || !Number.isFinite(Number(curGb))) return false;
+        return Math.abs(Number(displayGb) - Number(curGb)) < 0.02;
+      }
+      const hasCurrentSelected =
+        isCurrentDisplayGb(P0.displayGb) || isCurrentDisplayGb(P1.displayGb) || isCurrentDisplayGb(P2.displayGb);
+      function applyCurrentPlanByDisplayGb(displayGb, btn, chooseLabel, upgradeLabel) {
+        if (!btn) return;
+        const match = isCurrentDisplayGb(displayGb);
         if (match) {
-          // 按钮禁用 + 文案
           btn.disabled = true;
           btn.textContent = "当前套餐";
           btn.classList.add("opacity-70", "cursor-default");
         } else {
           btn.disabled = false;
           btn.classList.remove("opacity-70", "cursor-default");
-          btn.textContent = label;
+          btn.textContent = hasCurrentSelected ? upgradeLabel : chooseLabel;
         }
       }
 
-      applyCurrentPlanByLimit(
-        basic,
-        basicBtn,
-        "选择 Basic 套餐"
-      );
-      applyCurrentPlanByLimit(
-        pro,
-        proBtn,
-        "选择 Pro 套餐"
-      );
-      applyCurrentPlanByLimit(
-        premium,
-        premiumBtn,
-        "选择 Premium 套餐"
-      );
+      applyCurrentPlanByDisplayGb(P0.displayGb, basicBtn, "选择 Starter 套餐", "升级为 Starter 套餐");
+      applyCurrentPlanByDisplayGb(P1.displayGb, proBtn, "选择 Standard 套餐", "升级为 Standard 套餐");
+      applyCurrentPlanByDisplayGb(P2.displayGb, premiumBtn, "选择 Pro 套餐", "升级为 Pro 套餐");
     } catch (e) {
       // silent
     }
@@ -611,9 +1008,12 @@
         return;
       }
       showBanner("ok", (body && body.message) || "充值成功");
+      hasActivePlan = true;
       if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
-        document.getElementById("vless-link").textContent = body.data.subscription_url;
+        profileVlessLink = body.data.subscription_url;
       }
+      if (body.data && body.data.client_uuid) profileUuid = body.data.client_uuid;
+      applyAccessGate();
       // 面板更新可能需要一点时间，稍等再刷新实时用量，保证“看起来实时”
       await sleep(800);
       await loadXuiStatus();
@@ -655,9 +1055,12 @@
         return;
       }
       showBanner("ok", (body && body.message) || "升级成功");
+      hasActivePlan = true;
       if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
-        document.getElementById("vless-link").textContent = body.data.subscription_url;
+        profileVlessLink = body.data.subscription_url;
       }
+      if (body.data && body.data.client_uuid) profileUuid = body.data.client_uuid;
+      applyAccessGate();
       // 先乐观更新当前套餐状态，避免必须手动刷新才能看到“当前套餐”
       const selectedCard = btn.closest(".upgrade-card");
       const trafficEl = selectedCard ? selectedCard.querySelector('[id$="-traffic"]') : null;
@@ -697,8 +1100,10 @@
     const user = data.data.user;
     document.getElementById("username").textContent = user.username;
     document.getElementById("email").textContent = user.email;
-    document.getElementById("uuid").textContent = user.uuid;
-    document.getElementById("vless-link").textContent = user.vless_link || "—";
+    profileUuid = user.uuid || "";
+    profileVlessLink = user.vless_link || "";
+    hasActivePlan = !!user.has_active_plan;
+    applyAccessGate();
     await loadNodes(user.current_node_id);
   }
 
@@ -732,13 +1137,20 @@
       showBanner("err", data.message || "切换失败");
       return;
     }
-    document.getElementById("uuid").textContent = data.data.uuid;
-    document.getElementById("vless-link").textContent = data.data.vless_link || "—";
+    if (hasActivePlan) {
+      profileUuid = data.data.uuid || profileUuid;
+      profileVlessLink = data.data.vless_link || profileVlessLink;
+      applyAccessGate();
+    }
     showBanner("ok", "已切换节点");
     await loadXuiStatus();
   };
 
   window.copyLink = async function () {
+    if (!hasActivePlan) {
+      showBanner("err", "请先选择套餐或续费后再复制订阅链接。");
+      return;
+    }
     const text = document.getElementById("vless-link").textContent;
     await navigator.clipboard.writeText(text);
     showBanner("ok", "已复制");

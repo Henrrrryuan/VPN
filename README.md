@@ -143,10 +143,15 @@ curl -X POST http://127.0.0.1:5001/api/plans/purchase \
 cd /path/to/VPN   # 项目根目录
 chmod +x deploy/rsync_to_vps.sh
 ./deploy/rsync_to_vps.sh
-# 可选：RSYNC_HOST=root@你的IP RSYNC_DEST=/opt/vpn-saas ./deploy/rsync_to_vps.sh
+# 可选环境变量：
+#   RSYNC_HOST=root@你的IP RSYNC_DEST=/opt/vpn-saas
+#   RSYNC_RESTART_SERVICE=1   # 同步后自动 ssh 执行 systemctl restart flask-vpn.service
+#   RSYNC_VERIFY=0            # 跳过脚本末尾的远端 grep 校验（仅 rsync、无 ssh 时）
 ```
 
-脚本会排除 `.env`、`instance/`、`.venv`，避免覆盖线上密钥与数据库。
+脚本会排除 `.env`、`*.db`、`data/`、`instance/`、`.venv`，避免覆盖线上密钥与数据库。同步结束后会默认 **ssh 到 VPS** 检查 `templates/dashboard.html` 是否包含「选择套餐」；若报错，说明文件未完整同步或路径不是 `/opt/vpn-saas`。
+
+同步完成后请 **重启服务**（或设 `RSYNC_RESTART_SERVICE=1` 自动重启），浏览器再 **强制刷新**。
 
 或手动：
 
@@ -184,4 +189,4 @@ sudo systemctl status flask-vpn --no-pager
 curl -sS http://127.0.0.1:5001/
 ```
 
-若浏览器里 `/dashboard` 仍是旧版界面，请用 **Mac rsync 同步整个项目**（含 `templates/`）后执行 `sudo systemctl restart flask-vpn`，并 **强制刷新**（Ctrl+F5 / 清空缓存）。
+若浏览器里 `/dashboard` 仍是旧版界面：先确认本机 `deploy/rsync_to_vps.sh` 为最新（旧版脚本曾在 `rsync` 续行里插入 `#` 注释，会导致同步不完整）。然后重新执行 rsync、`sudo systemctl restart flask-vpn`，并 **强制刷新**（Ctrl+F5 / 清空缓存）。
