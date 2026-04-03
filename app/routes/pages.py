@@ -29,3 +29,9 @@ def login():
 @pages_bp.get("/dashboard")
 def dashboard():
     return _html_no_cache("dashboard.html")
+
+
+@pages_bp.get("/admin")
+def admin_page():
+    """管理员：调整用户到期与流量并同步 X-UI（需配置 ADMIN_TOKEN）。"""
+    return _html_no_cache("admin.html")

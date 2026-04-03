@@ -2,8 +2,8 @@
 {% macro site_url(name) -%}
 {% if config.AUTH_PAGE_BASE_URL %}
   {{- config.AUTH_PAGE_BASE_URL -}}
-  {%- if name == 'index' -%}/{% elif name == 'login' -%}/login{% elif name == 'dashboard' -%}/dashboard{% else -%}/{% endif %}
+  {%- if name == 'index' -%}/{% elif name == 'login' -%}/login{% elif name == 'dashboard' -%}/dashboard{% elif name == 'admin' -%}/admin{% else -%}/{% endif %}
 {% else %}
-  {%- if name == 'index' -%}{{ url_for('pages.index') }}{% elif name == 'login' -%}{{ url_for('pages.login') }}{% elif name == 'dashboard' -%}{{ url_for('pages.dashboard') }}{% else -%}{{ url_for('pages.index') }}{% endif %}
+  {%- if name == 'index' -%}{{ url_for('pages.index') }}{% elif name == 'login' -%}{{ url_for('pages.login') }}{% elif name == 'dashboard' -%}{{ url_for('pages.dashboard') }}{% elif name == 'admin' -%}{{ url_for('pages.admin_page') }}{% else -%}{{ url_for('pages.index') }}{% endif %}
 {% endif %}
 {%- endmacro %}

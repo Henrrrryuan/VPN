@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.models import Node, Plan, Subscription
 from app.services.subscription_provisioning import SubscriptionProvisioningError, provision_plan_for_user
@@ -62,6 +62,24 @@ def _subscription_dict(s: Subscription) -> dict:
     }
 
 
+def _local_fallback_dict(user) -> dict | None:
+    """最近一次订单记录，面板不可用时给用户看参考（与 X-UI 可能不一致）。"""
+    s = (
+        Subscription.query.filter_by(user_id=user.id)
+        .order_by(Subscription.started_at.desc())
+        .first()
+    )
+    if not s:
+        return None
+    return {
+        "expires_at_iso": _aware(s.expires_at).isoformat(),
+        "traffic_limit_gb": float(s.traffic_limit_gb),
+        "traffic_remaining_gb": float(s.traffic_remaining_gb),
+        "plan_name": s.plan.name if s.plan else "",
+        "source": "subscription",
+    }
+
+
 @plans_bp.get("")
 def list_plans():
     items = Plan.query.filter_by(is_enabled=True).order_by(Plan.id.asc()).all()
@@ -73,76 +91,102 @@ def list_plans():
 def xui_status():
     """从当前节点对应 3X-UI 面板拉取该邮箱客户端的实时流量与到期（与面板一致）。"""
     user = g.current_user
-    node = _node_for_user(user)
-    if not node:
-        return jsonify(
-            {
-                "success": True,
-                "data": {
-                    "available": False,
-                    "message": "未配置可用节点，请在后台启用至少一个节点。",
-                },
-            }
-        )
-
-    xui = XUIClient.from_node(node)
     try:
-        snap = xui.get_client_traffic_snapshot(user.email, user.uuid)
-    except XUIClientError as exc:
-        # 返回 200 + available:false，避免前端把面板连接/鉴权失败当成「无法拉取」且看不到原因
+        node = _node_for_user(user)
+        if not node:
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {
+                        "available": False,
+                        "message": "未配置可用节点，请在后台启用至少一个节点。",
+                        "local_fallback": _local_fallback_dict(user),
+                    },
+                }
+            )
+
+        xui = XUIClient.from_node(node)
+        try:
+            snap = xui.get_client_traffic_snapshot(user.email, user.uuid)
+        except XUIClientError as exc:
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {
+                        "available": False,
+                        "message": f"无法连接 3X-UI 面板：{exc}",
+                        "local_fallback": _local_fallback_dict(user),
+                    },
+                }
+            )
+
+        if not snap:
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {
+                        "available": False,
+                        "message": "面板中暂无该邮箱的流量记录（请确认已注册且节点对应同一面板）",
+                        "local_fallback": _local_fallback_dict(user),
+                    },
+                }
+            )
+
+        total = int(snap.get("total") or 0)
+        up = int(snap.get("up") or 0)
+        down = int(snap.get("down") or 0)
+        used = up + down
+        all_time = int(snap.get("allTime") or 0)
+        exp_ms = int(snap.get("expiryTime") or 0)
+        exp_iso = None
+        if exp_ms > 0:
+            exp_iso = datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc).isoformat()
+
+        unlimited_traffic = total <= 0
+        if unlimited_traffic:
+            remaining_bytes = None
+            remaining_display = "不限"
+        else:
+            remaining_bytes = max(0, total - used)
+            remaining_display = _format_bytes(remaining_bytes)
+
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "available": True,
+                    "email": user.email,
+                    "total_bytes": total,
+                    "used_bytes": used,
+                    "up_bytes": up,
+                    "down_bytes": down,
+                    "all_time_bytes": all_time,
+                    "expiry_time_ms": exp_ms,
+                    "expiry_iso": exp_iso,
+                    "unlimited_traffic": unlimited_traffic,
+                    "unlimited_expiry": exp_ms <= 0,
+                    "remaining_bytes": remaining_bytes,
+                    "remaining_display": remaining_display,
+                    "subscription_url": snap.get("subscriptionUrl") or None,
+                    "total_display": _format_bytes(total) if total > 0 else "不限",
+                    "used_display": _format_bytes(used),
+                    "all_time_display": _format_bytes(all_time),
+                    "local_fallback": _local_fallback_dict(user),
+                },
+            }
+        )
+    except Exception as exc:
+        current_app.logger.exception("xui-status failed user_id=%s", getattr(user, "id", None))
         return jsonify(
             {
                 "success": True,
                 "data": {
                     "available": False,
-                    "message": f"无法连接 3X-UI 面板：{exc}",
+                    "message": f"读取用量失败：{exc}",
+                    "local_fallback": _local_fallback_dict(user),
                 },
             }
         )
-
-    if not snap:
-        return jsonify(
-            {
-                "success": True,
-                "data": {
-                    "available": False,
-                    "message": "面板中暂无该邮箱的流量记录（请确认已注册且节点对应同一面板）",
-                },
-            }
-        )
-
-    total = int(snap.get("total") or 0)
-    up = int(snap.get("up") or 0)
-    down = int(snap.get("down") or 0)
-    used = up + down
-    all_time = int(snap.get("allTime") or 0)
-    exp_ms = int(snap.get("expiryTime") or 0)
-    exp_iso = None
-    if exp_ms > 0:
-        exp_iso = datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc).isoformat()
-
-    return jsonify(
-        {
-            "success": True,
-            "data": {
-                "available": True,
-                "email": user.email,
-                "total_bytes": total,
-                "used_bytes": used,
-                "up_bytes": up,
-                "down_bytes": down,
-                "all_time_bytes": all_time,
-                "expiry_time_ms": exp_ms,
-                "expiry_iso": exp_iso,
-                "unlimited_traffic": total <= 0,
-                "unlimited_expiry": exp_ms <= 0,
-                "subscription_url": snap.get("subscriptionUrl") or None,
-                "total_display": _format_bytes(total) if total > 0 else "不限",
-                "used_display": _format_bytes(used),
-                "all_time_display": _format_bytes(all_time),
-            },
-        }
-    )
 
 
 @plans_bp.get("/subscriptions")

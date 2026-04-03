@@ -1,4 +1,5 @@
 import json
+import os
 import uuid as uuid_lib
 from urllib.parse import quote, urlparse
 
@@ -9,6 +10,15 @@ from app.models import Node
 
 class XUIClientError(Exception):
     pass
+
+
+def _env_str_or(key: str, fallback: str) -> str:
+    """若进程环境中有该键且非空，用环境值；否则用 fallback（避免只改 .env 未同步 nodes 表）。"""
+    raw = os.environ.get(key)
+    if raw is None:
+        return fallback
+    s = str(raw).strip()
+    return s if s else fallback
 
 
 def merge_xui_base_url(node_base: str, web_path_from_config: str | None) -> str:
@@ -73,8 +83,8 @@ class XUIClient:
             pass
         return cls(
             base_url=merged_base,
-            username=node.username,
-            password=node.password,
+            username=_env_str_or("XUI_USERNAME", node.username),
+            password=_env_str_or("XUI_PASSWORD", node.password),
             inbound_id=node.inbound_id,
             verify_ssl=node.verify_ssl,
             public_host=node.public_host or "",
@@ -104,6 +114,9 @@ class XUIClient:
         if not data.get("success"):
             return None
         obj = data.get("obj")
+        # 3X-UI：有记录时为单个对象；无记录时常为 null（不是空对象）
+        if obj is None:
+            return None
         if isinstance(obj, list):
             obj = obj[0] if obj else None
         if not isinstance(obj, dict):
@@ -116,6 +129,20 @@ class XUIClient:
             "expiryTime": int(obj.get("expiryTime") or 0),
             "subscriptionUrl": obj.get("subscriptionUrl"),
         }
+
+    @staticmethod
+    def _normalize_inbounds_list_obj(data: dict) -> list | None:
+        """GET /panel/api/inbounds/list 的 obj：常为 inbound 数组；nil 时 JSON 为 null。"""
+        if not data.get("success"):
+            return None
+        raw = data.get("obj")
+        if raw is None:
+            return []
+        if isinstance(raw, dict):
+            return [raw]
+        if isinstance(raw, list):
+            return raw
+        return None
 
     def _get_traffic_json(self, url: str) -> dict | None:
         try:
@@ -176,10 +203,8 @@ class XUIClient:
             data = resp.json()
         except ValueError:
             return None
-        if not data.get("success"):
-            return None
-        obj = data.get("obj")
-        if not isinstance(obj, list):
+        obj = self._normalize_inbounds_list_obj(data)
+        if obj is None:
             return None
 
         preferred: list[dict] = []
@@ -207,20 +232,20 @@ class XUIClient:
         self, email: str, client_uuid: str | None = None
     ) -> dict | None:
         """
-        GET /panel/api/inbounds/getClientTraffics/{email}
-        可选：GET /panel/api/inbounds/getClientTrafficsById/{uuid}（邮箱查不到时回退）。
-        再回退：GET /panel/api/inbounds/list 与面板「入站列表」同源。
+        优先 GET /panel/api/inbounds/list（与面板「入站列表」同源，新客户端在 getClientTraffics 下常返回 obj=null）。
+        再试 getClientTraffics / getClientTrafficsById。
         返回 total/up/down/allTime/expiryTime/subscriptionUrl（与面板一致，字节级）。
         """
         self._login()
         em = str(email).strip()
+        snap = self._snapshot_from_inbounds_list(em, client_uuid)
+        if snap is not None:
+            return snap
         snap = self._get_traffic_json(self._traffics_url(em))
         if snap is None and em.lower() != em:
             snap = self._get_traffic_json(self._traffics_url(em.lower()))
         if snap is None and client_uuid:
             snap = self._get_traffic_json(self._traffics_by_id_url(client_uuid))
-        if snap is None:
-            snap = self._snapshot_from_inbounds_list(em, client_uuid)
         return snap
 
     def _resolve_subscription_link(self, email: str, user_uuid: str) -> str:

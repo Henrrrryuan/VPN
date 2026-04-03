@@ -65,6 +65,7 @@ def create_app() -> Flask:
     db.init_app(app)
     bcrypt.init_app(app)
 
+    from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
     from app.routes.nodes import nodes_bp
     from app.routes.pages import pages_bp
@@ -73,6 +74,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(nodes_bp, url_prefix="/api/nodes")
     app.register_blueprint(plans_bp, url_prefix="/api/plans")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(pages_bp)
     _register_api_error_handlers(app)
 

@@ -52,16 +52,22 @@
         <h2 class="text-lg font-bold text-white">X-UI 实时用量</h2>
         <span id="xui-sync-hint" class="text-xs text-slate-500">同步中…</span>
       </div>
-      <p class="mt-1 text-sm text-slate-400">到期时间、流量限额、已用与累计总流量均来自当前节点对应的 3X-UI 面板（自动刷新）。</p>
+      <p class="mt-1 text-sm text-slate-400">
+        到期、总限额、<strong class="text-slate-200">剩余流量</strong>、已用与累计均来自当前节点对应的 3X-UI（约 30s 刷新）。若面板暂不可达，会尽量显示系统内最近一次订单作参考。
+      </p>
       <div id="xui-unavailable" class="mt-4 hidden rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400"></div>
-      <div id="xui-content" class="mt-4 hidden grid gap-3 text-sm sm:grid-cols-2">
+      <div id="xui-content" class="mt-4 hidden grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
           <div class="text-xs text-slate-400">到期时间</div>
           <div id="xui-expiry" class="mt-1 font-semibold text-white">—</div>
         </div>
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-          <div class="text-xs text-slate-400">流量限额</div>
+          <div class="text-xs text-slate-400">流量总限额</div>
           <div id="xui-total" class="mt-1 font-semibold text-white">—</div>
+        </div>
+        <div class="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+          <div class="text-xs text-indigo-200/90">剩余流量</div>
+          <div id="xui-remaining" class="mt-1 font-semibold text-white">—</div>
         </div>
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
           <div class="text-xs text-slate-400">已用（上+下）</div>
@@ -141,7 +147,18 @@
     const unav = document.getElementById("xui-unavailable");
     const content = document.getElementById("xui-content");
     if (hint) hint.textContent = "同步中…";
-    const resp = await fetch(apiPath("/api/plans/xui-status"), { headers: authHeaders(false) });
+    let resp;
+    try {
+      resp = await fetch(apiPath("/api/plans/xui-status"), { headers: authHeaders(false) });
+    } catch (e) {
+      if (unav) {
+        unav.classList.remove("hidden");
+        unav.textContent = "网络异常，无法拉取 X-UI 数据。";
+      }
+      if (content) content.classList.add("hidden");
+      if (hint) hint.textContent = "";
+      return;
+    }
     let body;
     try {
       body = await resp.json();
@@ -152,14 +169,54 @@
       if (unav) {
         unav.classList.remove("hidden");
         const m = body && (body.message || (body.data && body.data.message));
-        unav.textContent = m || "无法拉取 X-UI 数据，请稍后重试。";
+        const hi = body && body.hint ? " · " + body.hint : "";
+        unav.textContent = "请求失败 HTTP " + resp.status + (m ? " · " + m : "") + hi;
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
       return;
     }
     const d = body && body.data;
-    if (!body || !d || !d.available) {
+    if (!body || !d) {
+      if (unav) {
+        unav.classList.remove("hidden");
+        unav.textContent = "接口返回无效";
+      }
+      if (content) content.classList.add("hidden");
+      if (hint) hint.textContent = "";
+      return;
+    }
+
+    function fillFromLocal(fb) {
+      var expEl = document.getElementById("xui-expiry");
+      var totEl = document.getElementById("xui-total");
+      var usedEl = document.getElementById("xui-used");
+      var allEl = document.getElementById("xui-alltime");
+      var remEl = document.getElementById("xui-remaining");
+      if (expEl)
+        expEl.textContent = (fb.expires_at_iso || "—").replace("T", " ").slice(0, 19);
+      if (totEl) totEl.textContent = fb.traffic_limit_gb != null ? fb.traffic_limit_gb + " GB（订单）" : "—";
+      if (remEl)
+        remEl.textContent =
+          fb.traffic_remaining_gb != null ? Number(fb.traffic_remaining_gb).toFixed(2) + " GB（订单）" : "—";
+      if (usedEl) usedEl.textContent = "—";
+      if (allEl) allEl.textContent = "—";
+    }
+
+    if (!d.available && d.local_fallback) {
+      if (unav) {
+        unav.classList.remove("hidden");
+        unav.textContent =
+          (d.message || "面板数据暂不可用") +
+          "（下方为系统内最近一次订单记录，可能与面板不一致）";
+      }
+      if (content) content.classList.remove("hidden");
+      if (hint) hint.textContent = "本地参考";
+      fillFromLocal(d.local_fallback);
+      return;
+    }
+
+    if (!d.available) {
       if (unav) {
         unav.classList.remove("hidden");
         unav.textContent = (d && d.message) || "无数据";
@@ -168,18 +225,21 @@
       if (hint) hint.textContent = "";
       return;
     }
+
     if (unav) unav.classList.add("hidden");
     if (content) content.classList.remove("hidden");
     if (hint) hint.textContent = "已同步 " + new Date().toLocaleTimeString();
-    const expEl = document.getElementById("xui-expiry");
-    const totEl = document.getElementById("xui-total");
-    const usedEl = document.getElementById("xui-used");
-    const allEl = document.getElementById("xui-alltime");
+    var expEl = document.getElementById("xui-expiry");
+    var totEl = document.getElementById("xui-total");
+    var remEl = document.getElementById("xui-remaining");
+    var usedEl = document.getElementById("xui-used");
+    var allEl = document.getElementById("xui-alltime");
     if (expEl)
       expEl.textContent = d.unlimited_expiry
         ? "不限"
         : (d.expiry_iso || "—").replace("T", " ").slice(0, 19);
     if (totEl) totEl.textContent = d.unlimited_traffic ? "不限" : (d.total_display || "—");
+    if (remEl) remEl.textContent = d.remaining_display != null ? d.remaining_display : "—";
     if (usedEl) usedEl.textContent = d.used_display || "—";
     if (allEl) allEl.textContent = d.all_time_display || "—";
   }

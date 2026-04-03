@@ -1,0 +1,171 @@
+{% from '_site_urls.html' import site_url %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="api-base" content="{{ request.script_root or '' }}" />
+  <title>管理 · 用户限额</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="mx-auto max-w-4xl px-4 py-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-bold text-white">管理员 · 同步 X-UI 限额</h1>
+      <a href="{{ site_url('index') }}" class="text-sm text-indigo-300 hover:underline">返回站点</a>
+    </div>
+    <p class="mt-2 text-sm text-slate-400">
+      在服务器 <code class="rounded bg-slate-800 px-1">.env</code> 中设置 <code class="rounded bg-slate-800 px-1">ADMIN_TOKEN</code> 后，在此输入同一令牌。
+      修改会调用 3X-UI <code class="rounded bg-slate-800 px-1">updateClient</code>，用户控制台将看到与面板一致的到期与流量。
+    </p>
+
+    <section class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+      <label class="text-sm text-slate-400">管理令牌</label>
+      <input type="password" id="admin-token" class="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 font-mono text-sm outline-none focus:border-indigo-400/50" placeholder="与 ADMIN_TOKEN 相同" autocomplete="off" />
+      <button type="button" id="save-token" class="mt-3 rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">保存到本页会话</button>
+    </section>
+
+    <section class="mt-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+      <h2 class="text-lg font-semibold text-white">用户列表</h2>
+      <button type="button" id="load-users" class="mt-3 rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/15">加载用户</button>
+      <div id="users-msg" class="mt-3 text-sm text-slate-400"></div>
+      <div id="users-table-wrap" class="mt-4 hidden overflow-x-auto rounded-xl border border-white/10">
+        <table class="w-full min-w-[640px] text-left text-sm">
+          <thead class="border-b border-white/10 bg-slate-950/50 text-slate-400">
+            <tr>
+              <th class="px-3 py-2">ID</th>
+              <th class="px-3 py-2">用户名</th>
+              <th class="px-3 py-2">邮箱</th>
+              <th class="px-3 py-2">UUID</th>
+              <th class="px-3 py-2">操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-body" class="divide-y divide-white/5"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="edit-panel" class="mt-6 hidden rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+      <h2 class="text-lg font-semibold text-white">编辑用户 <span id="edit-user-label" class="text-indigo-300"></span></h2>
+      <p class="mt-1 text-xs text-slate-500">到期时间使用 Unix 毫秒时间戳（与 3X-UI 一致）。0 表示不限到期；总流量 0 表示不限流量。</p>
+      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="text-sm text-slate-400">expiry_time_ms</label>
+          <input type="text" id="f-exp-ms" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 font-mono text-sm outline-none" placeholder="例如 1735689600000 或 0" />
+        </div>
+        <div>
+          <label class="text-sm text-slate-400">total_gb（总限额 GB）</label>
+          <input type="text" id="f-total-gb" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 font-mono text-sm outline-none" placeholder="0 表示不限" />
+        </div>
+      </div>
+      <button type="button" id="submit-limits" class="mt-4 rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20">写入 X-UI</button>
+      <pre id="edit-result" class="mt-4 hidden overflow-x-auto rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-300"></pre>
+    </section>
+  </div>
+
+  <script>
+(function () {
+  const SK = "vpn_saas_admin_token";
+  function apiPath(path) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
+  }
+  function getTok() {
+    return sessionStorage.getItem(SK) || document.getElementById("admin-token").value.trim();
+  }
+  document.getElementById("save-token").onclick = function () {
+    const v = document.getElementById("admin-token").value.trim();
+    if (v) sessionStorage.setItem(SK, v);
+    document.getElementById("users-msg").textContent = "已保存到 sessionStorage。";
+  };
+  let selectedId = null;
+
+  document.getElementById("load-users").onclick = async function () {
+    const msg = document.getElementById("users-msg");
+    const tok = getTok();
+    if (!tok) {
+      msg.textContent = "请先填写并保存管理令牌。";
+      return;
+    }
+    msg.textContent = "加载中…";
+    const resp = await fetch(apiPath("/api/admin/users"), { headers: { "X-Admin-Token": tok } });
+    let body;
+    try {
+      body = await resp.json();
+    } catch (e) {
+      body = null;
+    }
+    if (!resp.ok) {
+      msg.textContent = "HTTP " + resp.status + " " + (body && body.message ? body.message : "");
+      return;
+    }
+    const users = (body.data && body.data.users) || [];
+    msg.textContent = "共 " + users.length + " 个用户";
+    const tb = document.getElementById("users-body");
+    tb.innerHTML = "";
+    users.forEach(function (u) {
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-white/5";
+      tr.innerHTML =
+        '<td class="px-3 py-2 font-mono text-xs">' +
+        u.id +
+        "</td><td class=\"px-3 py-2\">" +
+        (u.username || "") +
+        "</td><td class=\"px-3 py-2\">" +
+        (u.email || "") +
+        "</td><td class=\"px-3 py-2 font-mono text-[10px] text-slate-400\">" +
+        (u.uuid || "").slice(0, 18) +
+        "…</td><td class=\"px-3 py-2\"><button type=\"button\" class=\"rounded-lg bg-indigo-500/80 px-2 py-1 text-xs text-white edit-btn\" data-id=\"" +
+        u.id +
+        "\" data-email=\"" +
+        (u.email || "").replace(/"/g, "&quot;") +
+        "\">编辑</button></td>";
+      tb.appendChild(tr);
+    });
+    document.getElementById("users-table-wrap").classList.remove("hidden");
+    tb.querySelectorAll(".edit-btn").forEach(function (btn) {
+      btn.onclick = function () {
+        selectedId = Number(btn.getAttribute("data-id"));
+        document.getElementById("edit-user-label").textContent = "#" + selectedId + " " + (btn.getAttribute("data-email") || "");
+        document.getElementById("edit-panel").classList.remove("hidden");
+        document.getElementById("edit-result").classList.add("hidden");
+        document.getElementById("f-exp-ms").value = "";
+        document.getElementById("f-total-gb").value = "";
+      };
+    });
+  };
+
+  document.getElementById("submit-limits").onclick = async function () {
+    const tok = getTok();
+    if (!tok || !selectedId) return;
+    const expMs = document.getElementById("f-exp-ms").value.trim();
+    const totalGb = document.getElementById("f-total-gb").value.trim();
+    const out = document.getElementById("edit-result");
+    out.classList.remove("hidden");
+    if (expMs === "" || isNaN(parseInt(expMs, 10))) {
+      out.textContent = "请填写有效的 expiry_time_ms（整数，毫秒；可用 0 表示不限到期）。";
+      return;
+    }
+    var payload = { expiry_time_ms: parseInt(expMs, 10) };
+    if (totalGb !== "" && !isNaN(parseFloat(totalGb))) payload.total_gb = parseFloat(totalGb);
+    else payload.total_gb = 0;
+    out.textContent = "提交中…";
+    const resp = await fetch(apiPath("/api/admin/users/" + selectedId + "/limits"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Token": tok },
+      body: JSON.stringify(payload),
+    });
+    let body;
+    try {
+      body = await resp.json();
+    } catch (e) {
+      body = { message: "invalid json" };
+    }
+    out.textContent = JSON.stringify(body, null, 2);
+  };
+})();
+  </script>
+</body>
+</html>
