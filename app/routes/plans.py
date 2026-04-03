@@ -3,7 +3,11 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, g, jsonify, request
 
 from app.models import Node, Plan, Subscription
-from app.services.subscription_provisioning import SubscriptionProvisioningError, provision_plan_for_user
+from app.services.subscription_provisioning import (
+    SubscriptionProvisioningError,
+    provision_recharge_for_user,
+    provision_upgrade_for_user,
+)
 from app.services.xui_client import XUIClient, XUIClientError
 from app.utils.auth_guard import jwt_required
 
@@ -142,14 +146,19 @@ def xui_status():
         if exp_ms > 0:
             exp_iso = datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc).isoformat()
 
-        unlimited_traffic = total <= 0
+        # 对于新注册但尚未开通套餐的用户，某些面板会返回 total=0 且 up=down=0。
+        # 这种场景下，前端不应展示为「不限」，而是清晰地显示为 0。
+        looks_like_new_user = total <= 0 and used <= 0
+
+        unlimited_traffic = total <= 0 and not looks_like_new_user
         if unlimited_traffic:
             remaining_bytes = None
             remaining_display = "不限"
         else:
             remaining_bytes = max(0, total - used)
-            remaining_display = _format_bytes(remaining_bytes)
+            remaining_display = _format_bytes(remaining_bytes) if remaining_bytes > 0 else "0 B"
 
+        local_fb = _local_fallback_dict(user)
         return jsonify(
             {
                 "success": True,
@@ -169,9 +178,8 @@ def xui_status():
                     "remaining_display": remaining_display,
                     "subscription_url": snap.get("subscriptionUrl") or None,
                     "total_display": _format_bytes(total) if total > 0 else "不限",
-                    "used_display": _format_bytes(used),
-                    "all_time_display": _format_bytes(all_time),
-                    "local_fallback": _local_fallback_dict(user),
+                    "local_fallback": local_fb,
+                    "current_plan_name": (local_fb or {}).get("plan_name") if local_fb else None,
                 },
             }
         )
@@ -189,53 +197,69 @@ def xui_status():
         )
 
 
-@plans_bp.get("/subscriptions")
+@plans_bp.post("/recharge")
 @jwt_required
-def list_my_subscriptions():
+def recharge():
+    """
+    续费套餐（Recharge）：叠加流量但不改变到期时间。
+    JSON: { "traffic_gb": number }
+    """
     user = g.current_user
-    rows = (
-        Subscription.query.filter_by(user_id=user.id)
-        .order_by(Subscription.started_at.desc())
-        .all()
+    payload = request.get_json(silent=True) or {}
+    raw_gb = payload.get("traffic_gb")
+    try:
+        traffic_gb = float(raw_gb)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "traffic_gb 必须是数字"}), 400
+
+    try:
+        result = provision_recharge_for_user(user.id, traffic_gb)
+    except SubscriptionProvisioningError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except XUIClientError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 502
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "续费成功，流量已更新",
+            "data": {
+                "subscription_url": result.subscription_url,
+                "client_uuid": result.client_uuid,
+            },
+        }
     )
-    return jsonify({"success": True, "data": {"subscriptions": [_subscription_dict(s) for s in rows]}})
 
 
-@plans_bp.post("/purchase")
+@plans_bp.post("/upgrade")
 @jwt_required
-def purchase():
+def upgrade():
+    """
+    升级套餐（Upgrade）：覆盖当前套餐、重置流量并更新到期时间。
+    JSON: { "plan_id": int }
+    """
     user = g.current_user
     payload = request.get_json(silent=True) or {}
     raw_pid = payload.get("plan_id")
     try:
         plan_id = int(raw_pid)
     except (TypeError, ValueError):
-        return jsonify({"success": False, "message": "plan_id must be an integer"}), 400
+        return jsonify({"success": False, "message": "plan_id 必须是整数"}), 400
 
     try:
-        result = provision_plan_for_user(user.id, plan_id)
+        result = provision_upgrade_for_user(user.id, plan_id)
     except SubscriptionProvisioningError as exc:
-        msg = str(exc)
-        if "plan not found" in msg.lower() or "user not found" in msg.lower():
-            return jsonify({"success": False, "message": msg}), 404
-        return jsonify({"success": False, "message": msg}), 502
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except XUIClientError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 502
 
-    return (
-        jsonify(
-            {
-                "success": True,
-                "message": "purchase recorded; x-ui limits stacked",
-                "data": {
-                    "subscription": _subscription_dict(result.subscription),
-                    "subscription_url": result.subscription_url,
-                    "node": {
-                        "id": result.node_id,
-                        "name": result.node_name,
-                        "region": result.node_region,
-                    },
-                    "client_uuid": result.client_uuid,
-                },
-            }
-        ),
-        201,
+    return jsonify(
+        {
+            "success": True,
+            "message": "套餐更新成功，流量与到期时间已同步",
+            "data": {
+                "subscription_url": result.subscription_url,
+                "client_uuid": result.client_uuid,
+            },
+        }
     )

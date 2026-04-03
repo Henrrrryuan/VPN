@@ -137,3 +137,241 @@ def provision_plan_for_user(user_id: int, plan_id: int) -> ProvisionResult:
         node_region=node.region,
         client_uuid=client_uuid,
     )
+
+
+def _ms_to_datetime_or_far_future(exp_ms: int, now: datetime) -> datetime:
+    """
+    3X-UI 的 expiryTime：
+    - >0：Unix 毫秒时间戳
+    - <=0：表示不限到期
+
+    Subscription.expires_at 是非空字段，因此用“很久以后”来近似表示不限到期。
+    """
+    if exp_ms and exp_ms > 0:
+        return datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc)
+    # 约 100 年，用于表示不限到期（不影响 UI 中无限判定：仍以 X-UI total/expiryTime 为准）
+    return now + timedelta(days=36500)
+
+
+def _gib_from_bytes(total_bytes: int) -> float:
+    if total_bytes is None or total_bytes <= 0:
+        return 0.0
+    return round(float(total_bytes) / (1024.0 * 1024.0 * 1024.0), 4)
+
+
+def provision_recharge_for_user(user_id: int, traffic_gb: float) -> ProvisionResult:
+    """
+    续费/流量加购（Recharge）：
+    - 叠加到当前剩余流量等价于：在原有 total 上增加 bytes
+    - 不改变 expiryTime（到期时间）
+    """
+    user = User.query.get(user_id)
+    if not user:
+        raise SubscriptionProvisioningError("user not found")
+
+    if traffic_gb is None or float(traffic_gb) <= 0:
+        raise SubscriptionProvisioningError("traffic_gb must be positive")
+
+    node = _select_node_for_user(user)
+    if not node:
+        raise SubscriptionProvisioningError("no enabled node available")
+
+    now = datetime.now(timezone.utc)
+    xui = XUIClient.from_node(node)
+
+    try:
+        snap = xui.get_client_traffic_snapshot(user.email, user.uuid)
+        if snap is None:
+            raise SubscriptionProvisioningError(
+                "x-ui: cannot read client traffic (check email exists on panel)"
+            )
+
+        resolved_client_uuid = snap.get("client_uuid") or user.uuid
+        if not resolved_client_uuid:
+            raise SubscriptionProvisioningError(
+                "x-ui: cannot resolve client uuid for updateClient (please ensure the client exists on panel)"
+            )
+
+        cur_total_bytes = int(snap.get("total") or 0)
+        cur_used_bytes = int(snap.get("up") or 0) + int(snap.get("down") or 0)
+        cur_expiry_ms = int(snap.get("expiryTime") or 0)
+        extra_bytes = _traffic_limit_bytes_from_gb(float(traffic_gb))
+
+        # total=0 在 X-UI 里可能有两种含义：
+        # - 确实“无限流量”（通常会伴随 up/down > 0）
+        # - 新账号尚未开通套餐（常见表现：total=0 且 up/down=0）
+        # 对“新账号未开通”这种场景，充值应当初始化 total 为 extra_bytes，
+        # 否则面板会保持 total=0（看起来充值没生效）。
+        if cur_total_bytes and cur_total_bytes > 0:
+            new_total_bytes = int(cur_total_bytes) + int(extra_bytes)
+        else:
+            new_total_bytes = 0 if cur_used_bytes > 0 else int(extra_bytes)
+
+        link = xui.update_client_quota_raw(
+            client_uuid=resolved_client_uuid,
+            username=user.username,
+            email=user.email,
+            total_bytes=new_total_bytes,
+            expiry_time_ms=cur_expiry_ms,
+        )
+
+        snap2 = xui.get_client_traffic_snapshot(user.email, resolved_client_uuid)
+        if snap2 is None:
+            raise SubscriptionProvisioningError("x-ui: cannot read client traffic after recharge")
+
+        remaining_gb = _remaining_gb_from_snapshot(
+            int(snap2.get("total") or 0),
+            int(snap2.get("up") or 0),
+            int(snap2.get("down") or 0),
+        )
+        expires_at = _ms_to_datetime_or_far_future(int(snap2.get("expiryTime") or 0), now)
+
+    except XUIClientError as exc:
+        raise SubscriptionProvisioningError(str(exc)) from exc
+
+    # 更新最近一次订阅记录（用于本地兜底展示；前端已不展示购买记录列表）
+    latest_sub = (
+        Subscription.query.filter_by(user_id=user.id)
+        .order_by(Subscription.started_at.desc())
+        .first()
+    )
+    if latest_sub:
+        latest_sub.started_at = now
+        # 充值不改变到期：expires_at 与面板相同（或不限到期的近似值）
+        latest_sub.expires_at = expires_at
+        latest_sub.traffic_limit_gb = _gib_from_bytes(int(snap2.get("total") or 0))
+        latest_sub.traffic_remaining_gb = remaining_gb
+        sub = latest_sub
+    else:
+        # 没有订阅记录时，沿用 Basic 作为占位 plan_id（不影响 X-UI 的 expiry/total）
+        base_plan = Plan.query.filter_by(is_enabled=True).order_by(Plan.id.asc()).first()
+        plan_id = base_plan.id if base_plan else 1
+        sub = Subscription(
+            user_id=user.id,
+            plan_id=plan_id,
+            started_at=now,
+            expires_at=expires_at,
+            traffic_limit_gb=_gib_from_bytes(new_total_bytes),
+            traffic_remaining_gb=remaining_gb,
+        )
+        db.session.add(sub)
+
+    user.uuid = resolved_client_uuid
+    user.vless_link = link
+    user.current_node_id = node.id
+    db.session.commit()
+
+    return ProvisionResult(
+        subscription=sub,
+        subscription_url=link,
+        node_id=node.id,
+        node_name=node.name,
+        node_region=node.region,
+        client_uuid=resolved_client_uuid,
+    )
+
+
+def provision_upgrade_for_user(user_id: int, plan_id: int) -> ProvisionResult:
+    """
+    套餐升级（Upgrade）：
+    - 覆盖当前套餐
+    - 重置流量上限
+    - 更新到期时间 = now + duration_days
+    """
+    user = User.query.get(user_id)
+    if not user:
+        raise SubscriptionProvisioningError("user not found")
+
+    plan = Plan.query.filter_by(id=plan_id, is_enabled=True).first()
+    if not plan:
+        raise SubscriptionProvisioningError("plan not found")
+
+    node = _select_node_for_user(user)
+    if not node:
+        raise SubscriptionProvisioningError("no enabled node available")
+
+    now = datetime.now(timezone.utc)
+    plan_gb = float(plan.traffic_limit_gb)
+    duration_days = int(plan.duration_days)
+
+    xui = XUIClient.from_node(node)
+
+    try:
+        exp_ms = int((now + timedelta(days=duration_days)).timestamp() * 1000)
+        total_bytes = _traffic_limit_bytes_from_gb(plan_gb if plan_gb and plan_gb > 0 else None)
+
+        # 尽量从现有面板记录解析 client_uuid；避免 user.uuid 为空时误创建重复客户端。
+        snap_first = xui.get_client_traffic_snapshot(user.email, user.uuid)
+        resolved_client_uuid = None
+        if user.uuid:
+            resolved_client_uuid = user.uuid
+        elif snap_first:
+            resolved_client_uuid = snap_first.get("client_uuid")
+
+        if resolved_client_uuid:
+            link = xui.update_client_quota_raw(
+                client_uuid=resolved_client_uuid,
+                username=user.username,
+                email=user.email,
+                total_bytes=total_bytes,
+                expiry_time_ms=exp_ms,
+            )
+            client_uuid = resolved_client_uuid
+        else:
+            client_uuid, link = xui.create_vless_user(
+                user.username,
+                user.email,
+                total_gb=plan_gb,
+                expiry_time_ms=exp_ms,
+            )
+
+        snap2 = xui.get_client_traffic_snapshot(user.email, client_uuid)
+        if snap2 is None:
+            raise SubscriptionProvisioningError("x-ui: cannot read client traffic after upgrade")
+
+        remaining_gb = _remaining_gb_from_snapshot(
+            int(snap2.get("total") or 0),
+            int(snap2.get("up") or 0),
+            int(snap2.get("down") or 0),
+        )
+        expires_at = datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc)
+
+    except XUIClientError as exc:
+        raise SubscriptionProvisioningError(str(exc)) from exc
+
+    latest_sub = (
+        Subscription.query.filter_by(user_id=user.id)
+        .order_by(Subscription.started_at.desc())
+        .first()
+    )
+    if latest_sub:
+        latest_sub.started_at = now
+        latest_sub.plan_id = plan.id
+        latest_sub.expires_at = expires_at
+        latest_sub.traffic_limit_gb = plan_gb
+        latest_sub.traffic_remaining_gb = remaining_gb
+        sub = latest_sub
+    else:
+        sub = Subscription(
+            user_id=user.id,
+            plan_id=plan.id,
+            started_at=now,
+            expires_at=expires_at,
+            traffic_limit_gb=plan_gb,
+            traffic_remaining_gb=remaining_gb,
+        )
+        db.session.add(sub)
+
+    user.uuid = client_uuid
+    user.vless_link = link
+    user.current_node_id = node.id
+    db.session.commit()
+
+    return ProvisionResult(
+        subscription=sub,
+        subscription_url=link,
+        node_id=node.id,
+        node_name=node.name,
+        node_region=node.region,
+        client_uuid=client_uuid,
+    )

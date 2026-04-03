@@ -53,50 +53,156 @@
         <span id="xui-sync-hint" class="text-xs text-slate-500">同步中…</span>
       </div>
       <p class="mt-1 text-sm text-slate-400">
-        到期、总限额、<strong class="text-slate-200">剩余流量</strong>、已用与累计均来自当前节点对应的 3X-UI（约 30s 刷新）。若面板暂不可达，会尽量显示系统内最近一次订单作参考。
+
       </p>
       <div id="xui-unavailable" class="mt-4 hidden rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400"></div>
       <div id="xui-content" class="mt-4 hidden grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-          <div class="text-xs text-slate-400">到期时间</div>
+          <div class="text-xs text-slate-400">
+            到期时间 <span class="text-[11px] text-slate-500">(北京时间)</span>
+          </div>
           <div id="xui-expiry" class="mt-1 font-semibold text-white">—</div>
         </div>
         <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
           <div class="text-xs text-slate-400">流量总限额</div>
           <div id="xui-total" class="mt-1 font-semibold text-white">—</div>
         </div>
-        <div class="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4">
-          <div class="text-xs text-indigo-200/90">剩余流量</div>
+        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div class="text-xs text-slate-400">剩余流量</div>
           <div id="xui-remaining" class="mt-1 font-semibold text-white">—</div>
         </div>
-        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-          <div class="text-xs text-slate-400">已用（上+下）</div>
-          <div id="xui-used" class="mt-1 font-semibold text-white">—</div>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-          <div class="text-xs text-slate-400">累计总流量</div>
-          <div id="xui-alltime" class="mt-1 font-semibold text-white">—</div>
-        </div>
       </div>
     </section>
 
     <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
-      <h2 class="text-lg font-bold text-white">购买记录</h2>
-      <p class="mt-1 text-sm text-slate-400">
-        多次购买会叠加到<strong class="text-slate-200">同一 X-UI 客户端</strong>，不在此逐条堆叠展示。
-        <strong class="text-indigo-200">到期、限额、已用、累计流量</strong>请只看上方「X-UI 实时用量」。
-      </p>
-      <div
-        id="order-summary"
-        class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 text-sm leading-relaxed text-slate-300"
-      >
-        加载中…
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-bold text-white">套餐信息</h2>
+        <div class="flex flex-wrap gap-2">
+          <button
+            id="tab-upgrade-btn"
+            type="button"
+            onclick="setRechargeUpgradeTab('upgrade')"
+            class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+          >
+            选择套餐
+          </button>
+          <button
+            id="tab-recharge-btn"
+            type="button"
+            onclick="setRechargeUpgradeTab('recharge')"
+            class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 shadow-sm transition hover:bg-white/10"
+          >
+            续费套餐
+          </button>
+        </div>
       </div>
-    </section>
 
-    <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
-      <h2 class="text-lg font-bold text-white">可购套餐</h2>
-      <div id="plans-grid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+      <div class="mt-4">
+        <!-- Upgrade -->
+        <div
+          id="panel-upgrade"
+          class="transition-all duration-200 ease-out overflow-hidden max-h-[900px] opacity-100 translate-y-0 pointer-events-auto"
+        >
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div id="upgrade-basic-name" class="text-sm font-semibold text-slate-200">Basic</div>
+              <div id="upgrade-basic-traffic" class="mt-1 text-xs text-slate-400">—</div>
+              <div id="upgrade-basic-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="upgrade-btn-basic"
+                type="button"
+                data-plan-id=""
+                onclick="onUpgradeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                选择 Basic 套餐
+              </button>
+            </div>
+
+            <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div id="upgrade-pro-name" class="text-sm font-semibold text-slate-200">Pro</div>
+              <div id="upgrade-pro-traffic" class="mt-1 text-xs text-slate-400">—</div>
+              <div id="upgrade-pro-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="upgrade-btn-pro"
+                type="button"
+                data-plan-id=""
+                onclick="onUpgradeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                选择 Pro 套餐
+              </button>
+            </div>
+
+            <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Premium</div>
+              <div id="upgrade-premium-traffic" class="mt-1 text-xs text-slate-400">—</div>
+              <div id="upgrade-premium-price" class="mt-3 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="upgrade-btn-premium"
+                type="button"
+                data-plan-id=""
+                onclick="onUpgradeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                选择 Premium 套餐
+              </button>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-slate-400">升级后覆盖当前套餐：重置流量并更新到期时间。</p>
+        </div>
+
+        <!-- Recharge -->
+        <div
+          id="panel-recharge"
+          class="transition-all duration-200 ease-out overflow-hidden max-h-0 opacity-0 translate-y-2 pointer-events-none"
+        >
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div class="text-sm font-semibold text-slate-200">+100GB</div>
+              <div id="recharge-price-100" class="mt-2 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="recharge-btn-100"
+                type="button"
+                data-traffic-gb="100"
+                onclick="onRechargeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                购买
+              </button>
+            </div>
+
+            <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div class="text-sm font-semibold text-slate-200">+200GB</div>
+              <div id="recharge-price-200" class="mt-2 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="recharge-btn-200"
+                type="button"
+                data-traffic-gb="200"
+                onclick="onRechargeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                购买
+              </button>
+            </div>
+
+            <div class="recharge-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
+              <div class="text-sm font-semibold text-slate-200">+500GB</div>
+              <div id="recharge-price-500" class="mt-2 text-2xl font-extrabold text-white">$—</div>
+              <button
+                id="recharge-btn-500"
+                type="button"
+                data-traffic-gb="500"
+                onclick="onRechargeClick(this)"
+                class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
+              >
+                购买
+              </button>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-slate-400">购买后叠加当前剩余流量；到期时间不改变。</p>
+        </div>
+      </div>
     </section>
 
     <section class="rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
@@ -112,9 +218,13 @@
 (function () {
   const token = localStorage.getItem("token");
   if (!token) {
-    window.location.href = {{ (site_url('index') | tojson) }};
+    window.location.href = "{{ (site_url('index') | trim) }}";
     throw new Error("no token");
   }
+
+  // 当前套餐对应的总流量上限（GB），由 /api/plans/xui-status 的 total_bytes 推断
+  let currentPlanLimitGb = null;
+  let bannerTimer = null;
 
   function apiPath(path) {
     const meta = document.querySelector('meta[name="api-base"]');
@@ -129,6 +239,42 @@
     return h;
   }
 
+  function formatBeijingFromMs(ms) {
+    const n = Number(ms);
+    if (!n || n <= 0) return "不限";
+    const dt = new Date(n);
+    if (Number.isNaN(dt.getTime())) return "—";
+    // 明确指定时区：面向中国客户显示北京时间
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .format(dt)
+      .replace(/\//g, "-");
+  }
+
+  function formatBeijingFromIso(iso) {
+    if (!iso) return "—";
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "—";
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .format(dt)
+      .replace(/\//g, "-");
+  }
+
   function showBanner(kind, msg) {
     const el = document.getElementById("banner");
     el.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
@@ -136,6 +282,13 @@
     else el.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
     el.textContent = msg;
     el.classList.remove("hidden");
+    if (bannerTimer) {
+      clearTimeout(bannerTimer);
+      bannerTimer = null;
+    }
+    bannerTimer = setTimeout(function () {
+      hideBanner();
+    }, 5000);
   }
 
   function hideBanner() {
@@ -190,17 +343,13 @@
     function fillFromLocal(fb) {
       var expEl = document.getElementById("xui-expiry");
       var totEl = document.getElementById("xui-total");
-      var usedEl = document.getElementById("xui-used");
-      var allEl = document.getElementById("xui-alltime");
       var remEl = document.getElementById("xui-remaining");
       if (expEl)
-        expEl.textContent = (fb.expires_at_iso || "—").replace("T", " ").slice(0, 19);
+        expEl.textContent = formatBeijingFromIso(fb.expires_at_iso);
       if (totEl) totEl.textContent = fb.traffic_limit_gb != null ? fb.traffic_limit_gb + " GB（订单）" : "—";
       if (remEl)
         remEl.textContent =
           fb.traffic_remaining_gb != null ? Number(fb.traffic_remaining_gb).toFixed(2) + " GB（订单）" : "—";
-      if (usedEl) usedEl.textContent = "—";
-      if (allEl) allEl.textContent = "—";
     }
 
     if (!d.available && d.local_fallback) {
@@ -213,6 +362,8 @@
       if (content) content.classList.remove("hidden");
       if (hint) hint.textContent = "本地参考";
       fillFromLocal(d.local_fallback);
+      // 面板不可用时不尝试推断当前套餐（避免误差）
+      currentPlanLimitGb = null;
       return;
     }
 
@@ -232,23 +383,314 @@
     var expEl = document.getElementById("xui-expiry");
     var totEl = document.getElementById("xui-total");
     var remEl = document.getElementById("xui-remaining");
-    var usedEl = document.getElementById("xui-used");
-    var allEl = document.getElementById("xui-alltime");
-    if (expEl)
-      expEl.textContent = d.unlimited_expiry
-        ? "不限"
-        : (d.expiry_iso || "—").replace("T", " ").slice(0, 19);
-    if (totEl) totEl.textContent = d.unlimited_traffic ? "不限" : (d.total_display || "—");
-    if (remEl) remEl.textContent = d.remaining_display != null ? d.remaining_display : "—";
-    if (usedEl) usedEl.textContent = d.used_display || "—";
-    if (allEl) allEl.textContent = d.all_time_display || "—";
+    // 新注册但尚未开通套餐的用户：total_bytes=0 且 used_bytes=0。
+    // 对这类用户，UI 不应显示为「不限」，而是清晰地展示为 0。
+    var looksNewUser = (!d.total_bytes || d.total_bytes <= 0) && (!d.used_bytes || d.used_bytes <= 0);
+    if (expEl) {
+      if (looksNewUser) {
+        expEl.textContent = "—";
+      } else {
+        expEl.textContent = d.unlimited_expiry ? "不限" : formatBeijingFromMs(d.expiry_time_ms);
+      }
+    }
+    if (totEl) {
+      if (looksNewUser) {
+        totEl.textContent = "0 B";
+      } else {
+        totEl.textContent = d.unlimited_traffic ? "不限" : (d.total_display || "—");
+      }
+    }
+    if (remEl) {
+      if (looksNewUser) {
+        remEl.textContent = "0 B";
+      } else {
+        remEl.textContent = d.remaining_display != null ? d.remaining_display : "—";
+      }
+    }
+
+    // 只有在 total>0 且不是“新用户未开通”时才推断当前套餐的流量档位
+    if (!looksNewUser && d.total_bytes && d.total_bytes > 0) {
+      const gib = d.total_bytes / (1024 * 1024 * 1024);
+      currentPlanLimitGb = Number(gib.toFixed(2));
+    } else {
+      currentPlanLimitGb = null;
+    }
+
+    // 每次成功拉取 X-UI 状态后，根据最新的 total_bytes 重新高亮当前套餐
+    await initRechargeUpgradeCards();
   }
+
+  function formatMoneyUSD(n) {
+    const x = Number(n);
+    if (Number.isNaN(x)) return "$—";
+    return "$" + x.toFixed(2);
+  }
+
+  function formatTrafficMonthly(gb) {
+    const x = Number(gb);
+    if (!x || Number.isNaN(x)) return "—";
+    if (x >= 1000) return (x / 1000).toFixed(2).replace(/\\.00$/, "") + "TB/月";
+    return x.toFixed(x % 1 === 0 ? 0 : 2).replace(/\\.00$/, "") + "GB/月";
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function markSelectedCard(groupClass, btn) {
+    var cards = document.querySelectorAll("." + groupClass);
+    cards.forEach(function (card) {
+      card.classList.remove("ring-2", "ring-indigo-400/70", "opacity-80");
+    });
+    if (!btn) return;
+    var card = btn.closest("." + groupClass);
+    if (!card) return;
+    card.classList.add("ring-2", "ring-indigo-400/70", "opacity-80");
+  }
+
+  window.setRechargeUpgradeTab = function (tab) {
+    const panelRecharge = document.getElementById("panel-recharge");
+    const panelUpgrade = document.getElementById("panel-upgrade");
+    const tabRechargeBtn = document.getElementById("tab-recharge-btn");
+    const tabUpgradeBtn = document.getElementById("tab-upgrade-btn");
+    if (!panelRecharge || !panelUpgrade || !tabRechargeBtn || !tabUpgradeBtn) return;
+
+    const isRecharge = tab === "recharge";
+    // Panel animation: opacity + translate + max-height
+    if (isRecharge) {
+      panelRecharge.classList.remove("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
+      panelRecharge.classList.add("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
+      panelUpgrade.classList.remove("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
+      panelUpgrade.classList.add("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
+      tabRechargeBtn.classList.add("bg-indigo-500/90", "text-white", "shadow-lg");
+      tabRechargeBtn.classList.remove("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
+      tabUpgradeBtn.classList.add("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
+      tabUpgradeBtn.classList.remove("bg-indigo-500/90", "text-white", "shadow-lg");
+    } else {
+      panelUpgrade.classList.remove("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
+      panelUpgrade.classList.add("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
+      panelRecharge.classList.remove("max-h-[900px]", "opacity-100", "translate-y-0", "pointer-events-auto");
+      panelRecharge.classList.add("max-h-0", "opacity-0", "translate-y-2", "pointer-events-none");
+      tabUpgradeBtn.classList.add("bg-indigo-500/90", "text-white", "shadow-lg");
+      tabUpgradeBtn.classList.remove("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
+      tabRechargeBtn.classList.add("border", "border-white/10", "bg-white/5", "text-slate-200", "shadow-sm");
+      tabRechargeBtn.classList.remove("bg-indigo-500/90", "text-white", "shadow-lg");
+    }
+  };
+
+  async function initRechargeUpgradeCards() {
+    try {
+      const resp = await fetch(apiPath("/api/plans"));
+      const body = await resp.json();
+      const plans = (body.data && body.data.plans) || [];
+      // 三个套餐始终展示：即使 /api/plans 未返回某个套餐，也用默认值兜底显示
+      const basic = plans.find((p) => p.name === "Basic") || {
+        id: 1,
+        name: "Basic",
+        price: 9.99,
+        traffic_limit_gb: 100,
+      };
+      const pro = plans.find((p) => p.name === "Pro") || {
+        id: 2,
+        name: "Pro",
+        price: 19.99,
+        traffic_limit_gb: 300,
+      };
+      const premium = plans.find((p) => p.name === "Premium") || {
+        id: 3,
+        name: "Premium",
+        price: 39.99,
+        traffic_limit_gb: 1000,
+      };
+
+      // Recharge pricing: proportional to Pro (price / traffic_limit_gb)
+      const proPricePerGb = pro && pro.traffic_limit_gb ? Number(pro.price) / Number(pro.traffic_limit_gb) : 0;
+      const rechargeOptions = [100, 200, 500];
+      rechargeOptions.forEach((gb) => {
+        const el = document.getElementById("recharge-price-" + gb);
+        if (!el) return;
+        const price = proPricePerGb > 0 ? proPricePerGb * gb : NaN;
+        el.textContent = formatMoneyUSD(price);
+      });
+
+      // Upgrade cards
+      const basicTraffic = document.getElementById("upgrade-basic-traffic");
+      const basicPrice = document.getElementById("upgrade-basic-price");
+      const basicBtn = document.getElementById("upgrade-btn-basic");
+      if (basicTraffic && basicPrice && basicBtn) {
+        basicTraffic.textContent = formatTrafficMonthly(basic.traffic_limit_gb);
+        basicPrice.textContent = formatMoneyUSD(basic.price);
+        basicBtn.setAttribute("data-plan-id", String(basic.id || 1));
+      }
+
+      const proTraffic = document.getElementById("upgrade-pro-traffic");
+      const proPrice = document.getElementById("upgrade-pro-price");
+      const proBtn = document.getElementById("upgrade-btn-pro");
+      if (proTraffic && proPrice && proBtn) {
+        proTraffic.textContent = formatTrafficMonthly(pro.traffic_limit_gb);
+        proPrice.textContent = formatMoneyUSD(pro.price);
+        proBtn.setAttribute("data-plan-id", String(pro.id || 2));
+      }
+
+      const premiumTraffic = document.getElementById("upgrade-premium-traffic");
+      const premiumPrice = document.getElementById("upgrade-premium-price");
+      const premiumBtn = document.getElementById("upgrade-btn-premium");
+      if (premiumTraffic && premiumPrice && premiumBtn) {
+        premiumTraffic.textContent = formatTrafficMonthly(premium.traffic_limit_gb);
+        premiumPrice.textContent = formatMoneyUSD(premium.price);
+        premiumBtn.setAttribute("data-plan-id", String(premium.id || 3));
+      }
+
+      // 根据当前 X-UI 面板上的总流量（GB）高亮当前套餐，并标记“当前套餐”标签 + 禁用按钮
+      const curGb = currentPlanLimitGb;
+      function applyCurrentPlanByLimit(planObj, btn, label) {
+        if (!btn || !planObj || !planObj.traffic_limit_gb || !curGb) {
+          if (btn) {
+            btn.disabled = false;
+            btn.classList.remove("opacity-70", "cursor-default");
+            if (label) btn.textContent = label;
+          }
+          return;
+        }
+        const planGb = Number(planObj.traffic_limit_gb);
+        const match = Math.abs(planGb - curGb) < 0.01;
+        if (match) {
+          // 按钮禁用 + 文案
+          btn.disabled = true;
+          btn.textContent = "当前套餐";
+          btn.classList.add("opacity-70", "cursor-default");
+        } else {
+          btn.disabled = false;
+          btn.classList.remove("opacity-70", "cursor-default");
+          btn.textContent = label;
+        }
+      }
+
+      applyCurrentPlanByLimit(
+        basic,
+        basicBtn,
+        "选择 Basic 套餐"
+      );
+      applyCurrentPlanByLimit(
+        pro,
+        proBtn,
+        "选择 Pro 套餐"
+      );
+      applyCurrentPlanByLimit(
+        premium,
+        premiumBtn,
+        "选择 Premium 套餐"
+      );
+    } catch (e) {
+      // silent
+    }
+  }
+
+  window.onRechargeClick = async function (btn) {
+    if (!btn) return;
+    if (btn.disabled) return;
+    const trafficGb = Number(btn.getAttribute("data-traffic-gb"));
+    if (!trafficGb || Number.isNaN(trafficGb)) return;
+
+
+
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "处理中…";
+    btn.classList.add("opacity-70", "cursor-not-allowed");
+
+    try {
+      const resp = await fetch(apiPath("/api/plans/recharge"), {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ traffic_gb: trafficGb }),
+      });
+      const body = await resp.json().catch(() => null);
+      if (!resp.ok || !body || !body.success) {
+        showBanner("err", (body && body.message) || "充值失败");
+        return;
+      }
+      showBanner("ok", (body && body.message) || "充值成功");
+      if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
+        document.getElementById("vless-link").textContent = body.data.subscription_url;
+      }
+      // 面板更新可能需要一点时间，稍等再刷新实时用量，保证“看起来实时”
+      await sleep(800);
+      await loadXuiStatus();
+    } catch (e) {
+      showBanner("err", "网络异常，充值失败");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
+      btn.classList.remove("opacity-70", "cursor-not-allowed");
+    }
+  };
+
+  window.onUpgradeClick = async function (btn) {
+    if (!btn) return;
+    if (btn.disabled) return;
+    const planId = btn.getAttribute("data-plan-id");
+    const pid = Number(planId);
+    if (!pid || Number.isNaN(pid)) {
+      showBanner("err", "未加载到可升级套餐信息，请刷新页面后重试。");
+      return;
+    }
+
+
+    const old = btn.textContent;
+    let upgradeSucceeded = false;
+    btn.disabled = true;
+    btn.textContent = "处理中…";
+    btn.classList.add("opacity-70", "cursor-not-allowed");
+
+    try {
+      const resp = await fetch(apiPath("/api/plans/upgrade"), {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ plan_id: pid }),
+      });
+      const body = await resp.json().catch(() => null);
+      if (!resp.ok || !body || !body.success) {
+        showBanner("err", (body && body.message) || "升级失败");
+        return;
+      }
+      showBanner("ok", (body && body.message) || "升级成功");
+      if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
+        document.getElementById("vless-link").textContent = body.data.subscription_url;
+      }
+      // 先乐观更新当前套餐状态，避免必须手动刷新才能看到“当前套餐”
+      const selectedCard = btn.closest(".upgrade-card");
+      const trafficEl = selectedCard ? selectedCard.querySelector('[id$="-traffic"]') : null;
+      if (trafficEl && trafficEl.textContent) {
+        const txt = String(trafficEl.textContent).trim().toUpperCase();
+        if (txt.includes("TB")) {
+          const n = Number(txt.replace(/[^0-9.]/g, ""));
+          if (!Number.isNaN(n) && n > 0) currentPlanLimitGb = Number((n * 1000).toFixed(2));
+        } else if (txt.includes("GB")) {
+          const n = Number(txt.replace(/[^0-9.]/g, ""));
+          if (!Number.isNaN(n) && n > 0) currentPlanLimitGb = Number(n.toFixed(2));
+        }
+      }
+      upgradeSucceeded = true;
+      await initRechargeUpgradeCards();
+      await sleep(800);
+      await loadXuiStatus();
+    } catch (e) {
+      showBanner("err", "网络异常，升级失败");
+    } finally {
+      if (!upgradeSucceeded) {
+        btn.disabled = false;
+        btn.textContent = old;
+      }
+      btn.classList.remove("cursor-not-allowed");
+    }
+  };
 
   async function loadProfile() {
     const resp = await fetch(apiPath("/api/auth/me"), { headers: authHeaders(false) });
     if (!resp.ok) {
       localStorage.removeItem("token");
-      window.location.href = {{ (site_url('index') | tojson) }};
+      window.location.href = "{{ (site_url('index') | trim) }}";
       return;
     }
     const data = await resp.json();
@@ -304,90 +746,12 @@
 
   window.logout = function () {
     localStorage.removeItem("token");
-    window.location.href = {{ (site_url('index') | tojson) }};
+    window.location.href = "{{ (site_url('index') | trim) }}";
   };
 
-  async function loadOrderSummary() {
-    const el = document.getElementById("order-summary");
-    if (!el) return;
-    const resp = await fetch(apiPath("/api/plans/subscriptions"), { headers: authHeaders(false) });
-    if (!resp.ok) {
-      el.textContent = "无法加载购买统计。";
-      return;
-    }
-    const data = await resp.json();
-    const list = (data.data && data.data.subscriptions) || [];
-    if (!list.length) {
-      el.textContent = "暂无购买记录。在下方选择套餐后，额度会叠加到同一 X-UI 账号；实时数据见上方。";
-      return;
-    }
-    el.innerHTML =
-      "本账号在系统内累计下单 <strong class=\"text-white\">" +
-      list.length +
-      "</strong> 次（后台仍逐笔记账）。<br />" +
-      "当前<strong class=\"text-white\">唯一有效状态</strong>以「X-UI 实时用量」为准，此处不再逐单展示卡片，避免与面板重复、造成多层叠加观感。";
-  }
-
-  async function loadPlans() {
-    const resp = await fetch(apiPath("/api/plans"));
-    if (!resp.ok) return;
-    const data = await resp.json();
-    const plans = (data.data && data.data.plans) || [];
-    const grid = document.getElementById("plans-grid");
-    grid.innerHTML = "";
-    plans.forEach((p) => {
-      const card = document.createElement("div");
-      card.className = "rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5";
-      card.innerHTML =
-        '<div class="text-lg font-bold text-white">' +
-        p.name +
-        "</div>" +
-        '<div class="mt-2 text-2xl font-extrabold text-white">$' +
-        p.price.toFixed(2) +
-        "</div>" +
-        '<ul class="mt-4 space-y-1 text-sm text-slate-300">' +
-        "<li>" +
-        p.traffic_limit_gb +
-        " GB / 期</li>" +
-        "<li>" +
-        p.duration_days +
-        " 天</li>" +
-        "</ul>" +
-        '<button type="button" class="buy-btn mt-5 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500" data-plan-id="' +
-        p.id +
-        '">购买</button>';
-      grid.appendChild(card);
-    });
-    grid.querySelectorAll(".buy-btn").forEach((btn) => {
-      btn.addEventListener("click", () => purchase(Number(btn.getAttribute("data-plan-id"))));
-    });
-  }
-
-  async function purchase(planId) {
-    hideBanner();
-    const resp = await fetch(apiPath("/api/plans/purchase"), {
-      method: "POST",
-      headers: authHeaders(true),
-      body: JSON.stringify({ plan_id: planId }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      showBanner("err", data.message || "购买失败");
-      return;
-    }
-    showBanner("ok", "已叠加套餐并同步面板");
-    if (data.data && data.data.subscription_url) {
-      document.getElementById("vless-link").textContent = data.data.subscription_url;
-    }
-    await loadOrderSummary();
-    await loadXuiStatus();
-  }
-
   loadProfile().then(function () {
-    loadOrderSummary();
     loadXuiStatus();
   });
-  loadPlans();
   setInterval(loadXuiStatus, 30000);
 })();
   </script>

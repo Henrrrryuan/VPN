@@ -13,6 +13,9 @@ rsync -avz --delete \
   --exclude '__pycache__/' \
   --exclude '*.pyc' \
   --exclude 'instance/' \
+  # 保留线上 SQLite 数据库，避免 --delete 把 VPS 的 DB 删掉
+  --exclude '*.db' \
+  --exclude 'data/' \
   --exclude '.env' \
   --exclude '.cursor/' \
   --exclude '.DS_Store' \

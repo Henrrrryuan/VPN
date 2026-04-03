@@ -128,6 +128,8 @@ class XUIClient:
             "allTime": int(obj.get("allTime") or 0),
             "expiryTime": int(obj.get("expiryTime") or 0),
             "subscriptionUrl": obj.get("subscriptionUrl"),
+            # 有些接口可能在对象里返回 uuid/id；取不到就为 None
+            "client_uuid": str(obj.get("uuid") or obj.get("id") or "") or None,
         }
 
     @staticmethod
@@ -167,6 +169,7 @@ class XUIClient:
             "allTime": int(st.get("allTime") or 0),
             "expiryTime": int(st.get("expiryTime") or 0),
             "subscriptionUrl": st.get("subscriptionUrl"),
+            "client_uuid": str(st.get("uuid") or st.get("id") or "") or None,
         }
 
     def _match_client_stat(
