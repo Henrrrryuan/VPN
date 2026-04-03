@@ -1,180 +1,272 @@
+{% from '_site_urls.html' import site_url %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>User Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 760px; margin: 24px auto; line-height: 1.5; }
-    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-    .link-box { background: #f7f7f7; padding: 12px; border-radius: 6px; word-break: break-all; }
-    button { padding: 8px 12px; cursor: pointer; margin-right: 8px; }
-  </style>
+  <meta name="api-base" content="{{ request.script_root or '' }}" />
+  <title>控制台 - VPN SaaS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#6366f1" />
 </head>
-<body>
-  <h2>VPN User Dashboard</h2>
-  <div class="card">
-    <div><b>Username:</b> <span id="username">-</span></div>
-    <div><b>Email:</b> <span id="email">-</span></div>
-    <div><b>UUID:</b> <span id="uuid">-</span></div>
-    <div style="margin-top: 10px;">
-      <b>当前同时在线 IP 数: </b>
-      <span id="online-ip-count">-</span>
-      <div id="online-ip-hint" style="font-size: 12px; color: #666; margin-top: 4px;"></div>
-    </div>
-    <div style="margin-top: 10px;">
-      <b>Node:</b>
-      <select id="node-select"></select>
-      <button onclick="switchNode()">Switch Node</button>
-    </div>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+    <div class="absolute top-80 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl"></div>
   </div>
 
-  <div class="card">
-    <h3>Your Subscription / VLESS Link</h3>
-    <div id="vless-link" class="link-box">Loading...</div>
-    <div style="margin-top: 10px;">
-      <button onclick="copyLink()">Copy Link</button>
-      <button onclick="logout()">Logout</button>
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <a href="{{ site_url('index') }}" class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 p-[1px]">
+          <div class="flex h-full w-full items-center justify-center rounded-[14px] bg-slate-950 text-sm font-bold">V</div>
+        </div>
+        <span class="text-sm font-semibold text-white">控制台</span>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="{{ site_url('index') }}#pricing" class="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 hover:bg-white/10 sm:text-sm">套餐</a>
+        <button type="button" onclick="logout()" class="rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/15 sm:text-sm">退出</button>
+      </div>
     </div>
-  </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <div id="banner" class="hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+    <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-white">账号</h2>
+      <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div><span class="text-slate-400">用户名</span> <span id="username" class="ml-2 font-medium text-white">-</span></div>
+        <div><span class="text-slate-400">邮箱</span> <span id="email" class="ml-2 font-medium text-white">-</span></div>
+        <div class="sm:col-span-2"><span class="text-slate-400">UUID</span> <span id="uuid" class="ml-2 break-all font-mono text-xs text-slate-200">-</span></div>
+      </div>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <label class="text-sm text-slate-400">节点</label>
+        <select id="node-select" class="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm outline-none focus:border-indigo-400/50"></select>
+        <button type="button" onclick="switchNode()" class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">切换节点</button>
+      </div>
+    </section>
+
+    <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-white">我的套餐订阅</h2>
+      <p class="mt-1 text-sm text-slate-400">开始 / 到期时间与剩余流量（购买后记录；流量消耗需另行对接面板统计后更新）</p>
+      <div id="subs-empty" class="mt-4 text-sm text-slate-500">暂无订阅，请在下方购买。</div>
+      <ul id="subs-list" class="mt-4 hidden space-y-3"></ul>
+    </section>
+
+    <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-white">可购套餐</h2>
+      <div id="plans-grid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+    </section>
+
+    <section class="rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-white">订阅链接 (VLESS)</h2>
+      <div id="vless-link" class="mt-3 break-all rounded-xl border border-white/10 bg-slate-950/40 p-4 font-mono text-xs text-slate-200">加载中…</div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" onclick="copyLink()" class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95">复制链接</button>
+      </div>
+    </section>
+  </main>
 
   <script>
-    const token = localStorage.getItem("token");
-    let isLoadingUsage = false;
-    if (!token) {
-      window.location.href = "/";
-    }
+(function () {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = {{ (site_url('index') | tojson) }};
+    throw new Error("no token");
+  }
 
-    async function loadProfile() {
-      const resp = await fetch("/api/auth/me", {
-        headers: { "Authorization": "Bearer " + token }
-      });
+  function apiPath(path) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
+  }
 
-      if (!resp.ok) {
-        localStorage.removeItem("token");
-        window.location.href = "/";
-        return;
-      }
+  function authHeaders(json) {
+    const h = { Authorization: "Bearer " + token };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
 
-      const data = await resp.json();
-      const user = data.data.user;
-      document.getElementById("username").textContent = user.username;
-      document.getElementById("email").textContent = user.email;
-      document.getElementById("uuid").textContent = user.uuid;
-      document.getElementById("vless-link").textContent = user.vless_link || "x-ui did not return link yet";
-      await loadNodes(user.current_node_id);
-      await loadUsage();
-    }
+  function showBanner(kind, msg) {
+    const el = document.getElementById("banner");
+    el.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    if (kind === "ok") el.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    else el.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
 
-    async function loadUsage() {
-      if (isLoadingUsage) return;
-      isLoadingUsage = true;
-      try {
-        const resp = await fetch("/api/auth/usage", {
-          cache: "no-store",
-          headers: {
-            "Authorization": "Bearer " + token,
-            "Cache-Control": "no-cache"
-          }
-        });
-        const data = await resp.json().catch(() => null);
-        const hintEl = document.getElementById("online-ip-hint");
-        if (!resp.ok || !data || !data.data) {
-          document.getElementById("online-ip-count").textContent = "未知";
-          if (hintEl) hintEl.textContent = "";
-          return;
-        }
-        const online = data.data.online_ip_count;
-        const limit = data.data.limit_ip;
-        const suffix = data.data.fallback_used ? "（估算）" : "";
-        document.getElementById("online-ip-count").textContent = `${online}/${limit}${suffix}`;
-        if (hintEl) {
-          const ev = data.data.events_in_window ?? 0;
-          const dist = data.data.distinct_ips_any ?? 0;
-          const minEv = data.data.min_events_per_ip ?? 2;
-          if (!data.data.fallback_used) {
-            if (online === 0 && ev === 0) {
-              hintEl.textContent =
-                "窗口内无上报事件：请确认节点上 shipper 在跑、access.log 有新行；新版已支持「时间戳 源IP:端口 accepted」类日志（不要求含 from）。";
-            } else if (online === 0 && dist > 0) {
-              hintEl.textContent =
-                "已有 " +
-                ev +
-                " 条事件、" +
-                dist +
-                " 个来源 IP，但未达到每 IP 至少 " +
-                minEv +
-                " 条；可在 .env 调低 ONLINE_MIN_EVENTS_PER_IP 或增大 ONLINE_STATS_WINDOW_SEC。";
-            } else {
-              hintEl.textContent = "";
-            }
-          } else {
-            hintEl.textContent = "";
-          }
-        }
-      } catch (e) {
-        document.getElementById("online-ip-count").textContent = "未知";
-        const h = document.getElementById("online-ip-hint");
-        if (h) h.textContent = "";
-      } finally {
-        isLoadingUsage = false;
-      }
-    }
+  function hideBanner() {
+    document.getElementById("banner").classList.add("hidden");
+  }
 
-    async function loadNodes(currentNodeId) {
-      const resp = await fetch("/api/nodes", {
-        headers: { "Authorization": "Bearer " + token }
-      });
-      if (!resp.ok) return;
-
-      const data = await resp.json();
-      const nodes = (data.data && data.data.nodes) || [];
-      const select = document.getElementById("node-select");
-      select.innerHTML = "";
-      nodes.forEach((n) => {
-        const option = document.createElement("option");
-        option.value = n.id;
-        option.textContent = `${n.name} (${n.region})`;
-        if (n.id === currentNodeId) option.selected = true;
-        select.appendChild(option);
-      });
-    }
-
-    async function switchNode() {
-      const nodeId = Number(document.getElementById("node-select").value);
-      if (!nodeId) return;
-      const resp = await fetch("/api/nodes/select", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ node_id: nodeId })
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        alert(data.message || "switch failed");
-        return;
-      }
-      document.getElementById("uuid").textContent = data.data.uuid;
-      document.getElementById("vless-link").textContent = data.data.vless_link || "x-ui did not return link yet";
-      alert("Node switched.");
-      await loadUsage();
-    }
-
-    async function copyLink() {
-      const text = document.getElementById("vless-link").textContent;
-      await navigator.clipboard.writeText(text);
-      alert("Link copied.");
-    }
-
-    function logout() {
+  async function loadProfile() {
+    const resp = await fetch(apiPath("/api/auth/me"), { headers: authHeaders(false) });
+    if (!resp.ok) {
       localStorage.removeItem("token");
-      window.location.href = "/";
+      window.location.href = {{ (site_url('index') | tojson) }};
+      return;
     }
+    const data = await resp.json();
+    const user = data.data.user;
+    document.getElementById("username").textContent = user.username;
+    document.getElementById("email").textContent = user.email;
+    document.getElementById("uuid").textContent = user.uuid;
+    document.getElementById("vless-link").textContent = user.vless_link || "—";
+    await loadNodes(user.current_node_id);
+  }
 
-    loadProfile();
-    setInterval(loadUsage, 3000);
+  async function loadNodes(currentNodeId) {
+    const resp = await fetch(apiPath("/api/nodes"), { headers: authHeaders(false) });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const nodes = (data.data && data.data.nodes) || [];
+    const select = document.getElementById("node-select");
+    select.innerHTML = "";
+    nodes.forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n.id;
+      opt.textContent = n.name + " (" + n.region + ")";
+      if (n.id === currentNodeId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  window.switchNode = async function () {
+    hideBanner();
+    const nodeId = Number(document.getElementById("node-select").value);
+    if (!nodeId) return;
+    const resp = await fetch(apiPath("/api/nodes/select"), {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({ node_id: nodeId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showBanner("err", data.message || "切换失败");
+      return;
+    }
+    document.getElementById("uuid").textContent = data.data.uuid;
+    document.getElementById("vless-link").textContent = data.data.vless_link || "—";
+    showBanner("ok", "已切换节点");
+  };
+
+  window.copyLink = async function () {
+    const text = document.getElementById("vless-link").textContent;
+    await navigator.clipboard.writeText(text);
+    showBanner("ok", "已复制");
+  };
+
+  window.logout = function () {
+    localStorage.removeItem("token");
+    window.location.href = {{ (site_url('index') | tojson) }};
+  };
+
+  function renderSubscriptions(list) {
+    const ul = document.getElementById("subs-list");
+    const empty = document.getElementById("subs-empty");
+    if (!list.length) {
+      ul.classList.add("hidden");
+      empty.classList.remove("hidden");
+      return;
+    }
+    empty.classList.add("hidden");
+    ul.classList.remove("hidden");
+    ul.innerHTML = "";
+    list.forEach((s) => {
+      const li = document.createElement("li");
+      li.className = "rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm";
+      const badge = s.is_active
+        ? '<span class="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-200">有效</span>'
+        : '<span class="rounded-full bg-slate-500/20 px-2 py-0.5 text-xs text-slate-400">已失效</span>';
+      li.innerHTML =
+        '<div class="flex flex-wrap items-center justify-between gap-2">' +
+        '<span class="font-semibold text-white">' +
+        (s.plan_name || "套餐") +
+        "</span> " +
+        badge +
+        "</div>" +
+        '<div class="mt-2 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">' +
+        "<div>开始：" +
+        s.started_at +
+        "</div>" +
+        "<div>到期：" +
+        s.expires_at +
+        "</div>" +
+        "<div>流量上限：" +
+        s.traffic_limit_gb +
+        " GB</div>" +
+        "<div>剩余：" +
+        s.traffic_remaining_gb +
+        " GB</div>" +
+        "</div>";
+      ul.appendChild(li);
+    });
+  }
+
+  async function loadSubscriptions() {
+    const resp = await fetch(apiPath("/api/plans/subscriptions"), { headers: authHeaders(false) });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    renderSubscriptions((data.data && data.data.subscriptions) || []);
+  }
+
+  async function loadPlans() {
+    const resp = await fetch(apiPath("/api/plans"));
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const plans = (data.data && data.data.plans) || [];
+    const grid = document.getElementById("plans-grid");
+    grid.innerHTML = "";
+    plans.forEach((p) => {
+      const card = document.createElement("div");
+      card.className = "rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5";
+      card.innerHTML =
+        '<div class="text-lg font-bold text-white">' +
+        p.name +
+        "</div>" +
+        '<div class="mt-2 text-2xl font-extrabold text-white">$' +
+        p.price.toFixed(2) +
+        "</div>" +
+        '<ul class="mt-4 space-y-1 text-sm text-slate-300">' +
+        "<li>" +
+        p.traffic_limit_gb +
+        " GB / 期</li>" +
+        "<li>" +
+        p.duration_days +
+        " 天</li>" +
+        "</ul>" +
+        '<button type="button" class="buy-btn mt-5 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500" data-plan-id="' +
+        p.id +
+        '">购买</button>';
+      grid.appendChild(card);
+    });
+    grid.querySelectorAll(".buy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => purchase(Number(btn.getAttribute("data-plan-id"))));
+    });
+  }
+
+  async function purchase(planId) {
+    hideBanner();
+    const resp = await fetch(apiPath("/api/plans/purchase"), {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({ plan_id: planId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showBanner("err", data.message || "购买失败");
+      return;
+    }
+    showBanner("ok", "已记录购买");
+    await loadSubscriptions();
+  }
+
+  loadProfile().then(() => loadSubscriptions());
+  loadPlans();
+})();
   </script>
 </body>
 </html>

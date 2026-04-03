@@ -1,0 +1,9 @@
+{# 当落地页由其他静态域提供时，设置 AUTH_PAGE_BASE_URL 为 Flask 站点根（无尾斜杠），链接会指到该站点。 #}
+{% macro site_url(name) -%}
+{% if config.AUTH_PAGE_BASE_URL %}
+  {{- config.AUTH_PAGE_BASE_URL -}}
+  {%- if name == 'index' -%}/{% elif name == 'login' -%}/login{% elif name == 'dashboard' -%}/dashboard{% else -%}/{% endif %}
+{% else %}
+  {%- if name == 'index' -%}{{ url_for('pages.index') }}{% elif name == 'login' -%}{{ url_for('pages.login') }}{% elif name == 'dashboard' -%}{{ url_for('pages.dashboard') }}{% else -%}{{ url_for('pages.index') }}{% endif %}
+{% endif %}
+{%- endmacro %}

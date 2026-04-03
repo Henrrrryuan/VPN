@@ -1,0 +1,322 @@
+{% from '_site_urls.html' import site_url %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>高速稳定 VPN - SaaS 订阅</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#6366f1" />
+</head>
+<body class="bg-slate-950 text-slate-100">
+  <!-- Background -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+    <div class="absolute top-80 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl"></div>
+  </div>
+
+  <!-- Top Nav -->
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur">
+    <div class="mx-auto max-w-6xl px-4 py-3">
+      <div class="flex items-center justify-between gap-4">
+        <a href="{{ site_url('index') }}" class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 p-[1px]">
+            <div class="h-full w-full rounded-[14px] bg-slate-950 flex items-center justify-center font-bold">V</div>
+          </div>
+          <div class="leading-tight">
+            <div class="text-sm font-semibold text-white">VPN SaaS</div>
+            <div class="text-xs text-slate-400">高速稳定订阅</div>
+          </div>
+        </a>
+
+        <div class="flex items-center gap-3">
+          <a href="#pricing" class="hidden sm:inline-flex rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition">
+            查看套餐
+          </a>
+          <a href="{{ site_url('login') }}" class="inline-flex rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition">
+            登录 / 注册
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <main>
+    <section class="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div>
+          <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+            支持 ChatGPT / Netflix / 全球节点
+          </div>
+          <h1 class="mt-5 text-3xl font-extrabold tracking-tight sm:text-5xl">
+            高速稳定 VPN 服务
+          </h1>
+          <p class="mt-4 text-base text-slate-300 sm:text-lg">
+            自动分配账号与订阅链接。低延迟、高可用、多设备同时使用，轻松上网与流媒体观看。
+          </p>
+
+          <div class="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a href="#pricing" class="inline-flex justify-center rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95 transition">
+              立即购买
+            </a>
+            <a href="{{ site_url('login') }}" class="inline-flex justify-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-100 hover:bg-white/10 transition">
+              先登录再购买
+            </a>
+          </div>
+
+          <div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="text-sm font-semibold text-white">全球节点</div>
+              <div class="mt-1 text-xs text-slate-400">SG / JP 等</div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="text-sm font-semibold text-white">高可靠</div>
+              <div class="mt-1 text-xs text-slate-400">动态线路</div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="text-sm font-semibold text-white">多设备</div>
+              <div class="mt-1 text-xs text-slate-400">一键切换节点</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero Card -->
+        <div class="relative">
+          <div class="absolute -inset-1 -z-10 rounded-[2rem] bg-gradient-to-b from-indigo-500/25 to-fuchsia-500/10 blur-xl"></div>
+          <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-white">套餐订阅体验</div>
+                <div class="mt-1 text-xs text-slate-400">下单后自动生成订阅链接</div>
+              </div>
+              <div class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
+                1 分钟搞定
+              </div>
+            </div>
+
+            <div class="mt-6 space-y-3">
+              <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+                <div class="mt-1 h-9 w-9 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-200 font-bold">1</div>
+                <div>
+                  <div class="text-sm font-semibold">注册账号</div>
+                  <div class="mt-1 text-xs text-slate-400">邮箱/用户名 + 密码</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+                <div class="mt-1 h-9 w-9 rounded-xl bg-fuchsia-500/20 flex items-center justify-center text-fuchsia-200 font-bold">2</div>
+                <div>
+                  <div class="text-sm font-semibold">创建订阅</div>
+                  <div class="mt-1 text-xs text-slate-400">自动调用面板生成链接</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+                <div class="mt-1 h-9 w-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-200 font-bold">3</div>
+                <div>
+                  <div class="text-sm font-semibold">多设备即刻可用</div>
+                  <div class="mt-1 text-xs text-slate-400">复制链接即可导入</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="text-xs text-slate-400">提示</div>
+              <div class="mt-1 text-sm font-semibold">
+                购买套餐将弹出联系方式，人工审核后开通。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing：静态 HTML + /static/js/landing/contact.js（不依赖外网 Vue CDN） -->
+    <section id="pricing" class="mx-auto max-w-6xl px-4 pb-12 sm:pb-16">
+      <div class="flex items-end justify-between gap-6">
+        <div>
+          <h2 class="text-2xl font-extrabold sm:text-3xl">选择你的套餐</h2>
+          <p class="mt-2 text-slate-300">人工开通：购买后联系客服完成开通与交付。</p>
+        </div>
+        <div class="hidden md:block rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <div class="text-xs text-slate-400">支持</div>
+          <div class="mt-1 text-sm font-semibold text-white">ChatGPT / Netflix / 全球节点</div>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-slate-200 sm:px-5">
+        <span class="text-slate-300">套餐购买可走下方「购买」联系客服；需要自助订阅链接请先</span>
+        <a href="{{ site_url('login') }}#register" class="font-semibold text-white underline decoration-indigo-300/80 underline-offset-2 hover:text-indigo-200">注册</a>
+        <span class="text-slate-400">或</span>
+        <a href="{{ site_url('login') }}#login" class="font-semibold text-white underline decoration-indigo-300/80 underline-offset-2 hover:text-indigo-200">登录</a>
+        <span class="text-slate-400">（注册时由服务端调用 3X-UI 面板 API，在已配置的 inbound 下创建客户端，与面板路径 <code class="rounded bg-black/30 px-1 py-0.5 text-xs text-slate-300">/panel/inbounds</code> 为同一套账号体系。）</span>
+      </div>
+
+      <div class="mt-8 grid gap-5 lg:grid-cols-3">
+        <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="text-lg font-bold text-white">Basic</div>
+              <div class="mt-1 text-sm text-slate-300">100GB / 月</div>
+            </div>
+            <div class="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-200">入门</div>
+          </div>
+          <div class="mt-6">
+            <div class="text-4xl font-extrabold text-white">$9.99</div>
+            <div class="mt-1 text-sm text-slate-400">按月订阅</div>
+          </div>
+          <ul class="mt-6 space-y-2 text-sm text-slate-200">
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 全球节点接入</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 多设备使用</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 订阅链接自动生成</li>
+          </ul>
+          <button type="button" data-buy-plan="basic" class="mt-7 inline-flex w-full justify-center rounded-2xl bg-indigo-500/90 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition">
+            购买 Basic
+          </button>
+        </div>
+
+        <div class="relative rounded-[2rem] border border-indigo-400/30 bg-gradient-to-b from-indigo-500/15 to-white/5 p-6 sm:p-7">
+          <div class="absolute -top-3 left-6 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-1 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20">
+            最受欢迎
+          </div>
+          <div class="pt-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-lg font-bold text-white">Pro</div>
+                <div class="mt-1 text-sm text-slate-300">300GB / 月</div>
+              </div>
+              <div class="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-200">高性价比</div>
+            </div>
+            <div class="mt-6">
+              <div class="text-4xl font-extrabold text-white">$19.99</div>
+              <div class="mt-1 text-sm text-slate-400">按月订阅</div>
+            </div>
+            <ul class="mt-6 space-y-2 text-sm text-slate-200">
+              <li class="flex gap-2"><span class="text-emerald-400">✓</span> 高速稳定线路优先</li>
+              <li class="flex gap-2"><span class="text-emerald-400">✓</span> 多设备同时使用更从容</li>
+              <li class="flex gap-2"><span class="text-emerald-400">✓</span> 流媒体体验更佳</li>
+            </ul>
+            <button type="button" data-buy-plan="pro" class="mt-7 inline-flex w-full justify-center rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-3 text-sm font-semibold text-white hover:opacity-95 transition">
+              购买 Pro
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="text-lg font-bold text-white">Premium</div>
+              <div class="mt-1 text-sm text-slate-300">1TB / 月</div>
+            </div>
+            <div class="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-200">重度用户</div>
+          </div>
+          <div class="mt-6">
+            <div class="text-4xl font-extrabold text-white">$39.99</div>
+            <div class="mt-1 text-sm text-slate-400">按月订阅</div>
+          </div>
+          <ul class="mt-6 space-y-2 text-sm text-slate-200">
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 大流量稳定体验</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 更适合家庭与团队</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 更高优先级的节点资源</li>
+          </ul>
+          <button type="button" data-buy-plan="premium" class="mt-7 inline-flex w-full justify-center rounded-2xl bg-indigo-500/90 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition">
+            购买 Premium
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 联系客服 Modal -->
+    <div id="contact-modal" class="fixed inset-0 z-[100] hidden items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" aria-hidden="true">
+      <div class="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title">
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div>
+            <div id="contact-modal-title" class="text-lg font-bold text-white">联系客服开通</div>
+            <div class="mt-1 text-sm text-slate-400">
+              已选：<span id="contact-modal-plan" class="text-indigo-300">—</span> · 人工审核后开通
+            </div>
+          </div>
+          <button type="button" id="contact-modal-close" class="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-300 hover:bg-white/10">
+            关闭
+          </button>
+        </div>
+        <div class="space-y-3 px-5 py-4">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div class="text-xs font-medium text-slate-400">Telegram</div>
+            <div class="mt-1 flex items-center justify-between gap-2">
+              <span id="contact-val-telegram" class="truncate font-mono text-sm text-white"></span>
+              <button type="button" data-copy-key="telegram" class="shrink-0 rounded-lg bg-indigo-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500">复制</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div class="text-xs font-medium text-slate-400">微信</div>
+            <div class="mt-1 flex items-center justify-between gap-2">
+              <span id="contact-val-wechat" class="truncate font-mono text-sm text-white"></span>
+              <button type="button" data-copy-key="wechat" class="shrink-0 rounded-lg bg-indigo-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500">复制</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div class="text-xs font-medium text-slate-400">QQ</div>
+            <div class="mt-1 flex items-center justify-between gap-2">
+              <span id="contact-val-qq" class="truncate font-mono text-sm text-white"></span>
+              <button type="button" data-copy-key="qq" class="shrink-0 rounded-lg bg-indigo-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500">复制</button>
+            </div>
+          </div>
+        </div>
+        <div class="border-t border-white/10 px-5 py-3 text-xs text-slate-500">
+          请备注所选套餐与账号邮箱，便于快速处理。
+        </div>
+      </div>
+    </div>
+
+    <!-- Advantages -->
+    <section class="mx-auto max-w-6xl px-4 pb-12 sm:pb-16">
+      <div class="grid gap-5 md:grid-cols-3">
+        <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+          <div class="text-sm font-semibold text-indigo-200">全球节点</div>
+          <div class="mt-2 text-xl font-extrabold">就近接入，低延迟</div>
+          <p class="mt-3 text-sm text-slate-300">
+            根据访问线路自动选择更优节点，让体验更稳定。
+          </p>
+        </div>
+        <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+          <div class="text-sm font-semibold text-fuchsia-200">高速稳定</div>
+          <div class="mt-2 text-xl font-extrabold">降低抖动，流媒体更顺畅</div>
+          <p class="mt-3 text-sm text-slate-300">
+            面向 ChatGPT / Netflix 等场景优化，让访问更流畅。
+          </p>
+        </div>
+        <div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-7">
+          <div class="text-sm font-semibold text-emerald-200">多设备支持</div>
+          <div class="mt-2 text-xl font-extrabold">一套订阅，多端可用</div>
+          <p class="mt-3 text-sm text-slate-300">
+            手机、电脑、Pad 同时使用，支持一键切换节点。
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10 bg-slate-950">
+    <div class="mx-auto max-w-6xl px-4 py-8">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="text-sm text-slate-400">
+          © <span id="year"></span> VPN SaaS. All rights reserved.
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-sm">
+          <a href="{{ site_url('login') }}" class="text-slate-300 hover:text-white transition">登录</a>
+          <a href="#pricing" class="text-slate-300 hover:text-white transition">套餐</a>
+          <a href="{{ site_url('dashboard') }}" class="text-slate-300 hover:text-white transition">我的订阅</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+  <script defer src="{{ url_for('static', filename='js/landing/contact.js') }}"></script>
+</body>
+</html>
+

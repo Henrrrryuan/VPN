@@ -1,86 +1,270 @@
+{% from '_site_urls.html' import site_url %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VPN SaaS MVP</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 720px; margin: 24px auto; line-height: 1.5; }
-    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-    input { width: 100%; margin: 6px 0; padding: 10px; }
-    button { padding: 10px 14px; cursor: pointer; }
-    pre { white-space: pre-wrap; word-break: break-all; background: #f7f7f7; padding: 10px; }
-  </style>
+  <meta name="api-base" content="{{ request.script_root or '' }}" />
+  <title>登录 / 注册 - VPN SaaS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#6366f1" />
 </head>
-<body>
-  <h2>VPN SaaS MVP</h2>
-
-  <div class="card">
-    <h3>Register</h3>
-    <input id="r-username" placeholder="username" />
-    <input id="r-email" placeholder="email" />
-    <input id="r-password" type="password" placeholder="password" />
-    <button onclick="register()">Register</button>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+    <div class="absolute top-80 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl"></div>
   </div>
 
-  <div class="card">
-    <h3>Login</h3>
-    <input id="l-identity" placeholder="username or email" />
-    <input id="l-password" type="password" placeholder="password" />
-    <button onclick="login()">Login</button>
-  </div>
+  <header class="border-b border-white/10 bg-slate-950/70 backdrop-blur">
+    <div class="mx-auto flex max-w-lg items-center justify-between gap-4 px-4 py-4">
+      <a href="{{ site_url('index') }}" class="text-sm font-semibold text-slate-300 hover:text-white transition">← 返回首页</a>
+      <a href="{{ site_url('index') }}#pricing" class="text-sm text-indigo-300 hover:text-indigo-200">查看套餐</a>
+    </div>
+  </header>
 
-  <div class="card">
-    <h3>Response</h3>
-    <pre id="output">No request yet.</pre>
-  </div>
+  <main class="mx-auto max-w-lg px-4 py-10">
+    <div class="text-center">
+      <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">登录 / 注册</h1>
+      <p class="mt-2 text-sm text-slate-400">注册成功后将通过 3X-UI 面板 API 创建客户端并返回订阅链接</p>
+    </div>
+
+    <div class="mt-8 rounded-[1.5rem] border border-white/10 bg-white/5 p-1 sm:p-1.5">
+      <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-950/60 p-1">
+        <button type="button" id="tab-login" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold transition">登录</button>
+        <button type="button" id="tab-register" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold transition">注册</button>
+      </div>
+
+      <div id="panel-login" class="auth-panel mt-6 space-y-4 px-4 pb-6 sm:px-5">
+        <div>
+          <label class="block text-xs font-medium text-slate-400">用户名或邮箱</label>
+          <input id="l-identity" autocomplete="username" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="用户名或邮箱" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400">密码</label>
+          <input id="l-password" type="password" autocomplete="current-password" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="密码" />
+        </div>
+        <button type="button" id="btn-login" onclick="login()" class="w-full rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95 disabled:opacity-50">
+          登录
+        </button>
+      </div>
+
+      <div id="panel-register" class="auth-panel mt-6 hidden space-y-4 px-4 pb-6 sm:px-5">
+        <div>
+          <label class="block text-xs font-medium text-slate-400">用户名</label>
+          <input id="r-username" autocomplete="username" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="用户名" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400">邮箱</label>
+          <input id="r-email" type="email" autocomplete="email" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="邮箱" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400">密码（至少 6 位）</label>
+          <input id="r-password" type="password" autocomplete="new-password" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="密码" />
+        </div>
+        <button type="button" id="btn-register" onclick="register()" class="w-full rounded-2xl bg-indigo-500/90 py-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+          注册
+        </button>
+      </div>
+    </div>
+
+    <div id="alert-banner" class="mt-6 hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <button type="button" id="toggle-raw" class="text-xs font-medium text-slate-400 hover:text-slate-200">显示接口原始响应</button>
+      <pre id="output" class="mt-2 hidden max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-400">尚未请求。</pre>
+    </div>
+  </main>
 
   <script>
-    async function readResponseData(resp) {
-      const text = await resp.text();
-      try {
-        return JSON.parse(text);
-      } catch {
-        return { success: false, message: text || "unexpected server response" };
-      }
-    }
+(function () {
+  "use strict";
 
-    async function register() {
-      const body = {
-        username: document.getElementById("r-username").value,
-        email: document.getElementById("r-email").value,
-        password: document.getElementById("r-password").value
-      };
-      const resp = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const data = await readResponseData(resp);
-      document.getElementById("output").textContent = JSON.stringify(data, null, 2);
-      if (resp.ok && data.data && data.data.token) {
-        localStorage.setItem("token", data.data.token);
-        window.location.href = "/dashboard";
-      }
-    }
+  function apiPath(path) {
+    var base = "";
+    var meta = document.querySelector('meta[name="api-base"]');
+    if (meta && meta.getAttribute("content")) base = meta.getAttribute("content").trim();
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.charAt(0) === "/" ? path : "/" + path);
+  }
 
-    async function login() {
-      const body = {
-        identity: document.getElementById("l-identity").value,
-        password: document.getElementById("l-password").value
-      };
-      const resp = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const data = await readResponseData(resp);
-      document.getElementById("output").textContent = JSON.stringify(data, null, 2);
-      if (resp.ok && data.data && data.data.token) {
-        localStorage.setItem("token", data.data.token);
-        window.location.href = "/dashboard";
-      }
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function setOut(text) {
+    var el = $("output");
+    if (el) {
+      el.textContent = text;
+      el.classList.remove("hidden");
     }
+  }
+
+  function showAlert(kind, msg) {
+    var b = $("alert-banner");
+    if (!b) return;
+    b.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100", "border-amber-500/40", "bg-amber-500/10", "text-amber-100");
+    if (kind === "ok") {
+      b.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    } else if (kind === "warn") {
+      b.classList.add("border-amber-500/40", "bg-amber-500/10", "text-amber-100");
+    } else {
+      b.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
+    }
+    b.textContent = msg;
+  }
+
+  function hideAlert() {
+    var b = $("alert-banner");
+    if (b) b.classList.add("hidden");
+  }
+
+  async function readResponseData(resp) {
+    var text = await resp.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: text ? text.slice(0, 500) : "unexpected server response (not JSON)",
+      };
+    }
+  }
+
+  function setBusy(busy) {
+    ["btn-register", "btn-login"].forEach(function (id) {
+      var el = $(id);
+      if (el) {
+        el.disabled = busy;
+        el.style.opacity = busy ? "0.6" : "";
+      }
+    });
+  }
+
+  var tabLogin = $("tab-login");
+  var tabRegister = $("tab-register");
+  var panelLogin = $("panel-login");
+  var panelRegister = $("panel-register");
+
+  function styleTabs(active) {
+    [tabLogin, tabRegister].forEach(function (btn) {
+      btn.classList.remove("bg-indigo-500/25", "text-white", "shadow-sm");
+      btn.classList.add("text-slate-400");
+    });
+    if (active === "login") {
+      tabLogin.classList.add("bg-indigo-500/25", "text-white", "shadow-sm");
+      tabLogin.classList.remove("text-slate-400");
+    } else {
+      tabRegister.classList.add("bg-indigo-500/25", "text-white", "shadow-sm");
+      tabRegister.classList.remove("text-slate-400");
+    }
+  }
+
+  function showPanel(which) {
+    if (which === "register") {
+      panelLogin.classList.add("hidden");
+      panelRegister.classList.remove("hidden");
+      styleTabs("register");
+    } else {
+      panelRegister.classList.add("hidden");
+      panelLogin.classList.remove("hidden");
+      styleTabs("login");
+    }
+    hideAlert();
+  }
+
+  tabLogin.addEventListener("click", function () {
+    showPanel("login");
+    history.replaceState(null, "", location.pathname + location.search);
+  });
+  tabRegister.addEventListener("click", function () {
+    showPanel("register");
+    history.replaceState(null, "", "#register");
+  });
+
+  function applyHash() {
+    var h = (location.hash || "").replace(/^#/, "").toLowerCase();
+    if (h === "register") showPanel("register");
+    else showPanel("login");
+  }
+  window.addEventListener("hashchange", applyHash);
+  applyHash();
+
+  $("toggle-raw").addEventListener("click", function () {
+    var pre = $("output");
+    pre.classList.toggle("hidden");
+  });
+
+  window.register = async function register() {
+    hideAlert();
+    setOut("请求中…");
+    $("output").classList.remove("hidden");
+    setBusy(true);
+    try {
+      var body = {
+        username: ($("r-username") && $("r-username").value) || "",
+        email: ($("r-email") && $("r-email").value) || "",
+        password: ($("r-password") && $("r-password").value) || "",
+      };
+      var resp = await fetch(apiPath("/api/auth/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      var data = await readResponseData(resp);
+      setOut(JSON.stringify(data, null, 2));
+      if (resp.ok && data.success && data.data && data.data.token) {
+        localStorage.setItem("token", data.data.token);
+        showAlert("ok", "注册成功，正在进入控制台…");
+        window.location.href = apiPath("/dashboard");
+        return;
+      }
+      var hint = "";
+      if (resp.status === 503) hint = "（无可用节点：请在后台启用节点并配置 3X-UI）";
+      else if (resp.status === 502) hint = "（面板 API 失败：检查节点 base_url、账号密码与 inbound_id）";
+      else if (resp.status === 409) hint = "（用户名或邮箱已存在）";
+      showAlert("err", (data.message || "注册失败") + hint);
+    } catch (e) {
+      showAlert("err", "网络错误：" + (e && e.message ? e.message : String(e)) + "。请用本应用地址打开（不要用 file://），并确认 Flask 已启动。");
+      setOut(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  window.login = async function login() {
+    hideAlert();
+    setOut("请求中…");
+    $("output").classList.remove("hidden");
+    setBusy(true);
+    try {
+      var body = {
+        identity: ($("l-identity") && $("l-identity").value) || "",
+        password: ($("l-password") && $("l-password").value) || "",
+      };
+      var resp = await fetch(apiPath("/api/auth/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      var data = await readResponseData(resp);
+      setOut(JSON.stringify(data, null, 2));
+      if (resp.ok && data.success && data.data && data.data.token) {
+        localStorage.setItem("token", data.data.token);
+        showAlert("ok", "登录成功，正在进入控制台…");
+        window.location.href = apiPath("/dashboard");
+        return;
+      }
+      showAlert("err", data.message || "登录失败，请检查用户名/邮箱与密码。");
+    } catch (e) {
+      showAlert("err", "网络错误：" + (e && e.message ? e.message : String(e)));
+      setOut(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+})();
   </script>
 </body>
 </html>

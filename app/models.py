@@ -46,13 +46,28 @@ class UserNodeAccess(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
-class OnlineIpEvent(db.Model):
-    __tablename__ = "online_ip_events"
+class Plan(db.Model):
+    __tablename__ = "plans"
 
     id = db.Column(db.Integer, primary_key=True)
-    node_id = db.Column(db.Integer, db.ForeignKey("nodes.id"), nullable=True, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    email = db.Column(db.String(120), nullable=False, index=True)
-    src_ip = db.Column(db.String(64), nullable=False, index=True)
-    observed_at = db.Column(db.DateTime, nullable=False, index=True)
+    name = db.Column(db.String(64), nullable=False, unique=True)
+    price = db.Column(db.Numeric(12, 2), nullable=False)
+    traffic_limit_gb = db.Column(db.Float, nullable=False)
+    duration_days = db.Column(db.Integer, nullable=False)
+    is_enabled = db.Column(db.Boolean, nullable=False, default=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class Subscription(db.Model):
+    __tablename__ = "subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey("plans.id"), nullable=False)
+    started_at = db.Column(db.DateTime, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    traffic_limit_gb = db.Column(db.Float, nullable=False)
+    traffic_remaining_gb = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    plan = db.relationship("Plan", lazy="joined")

@@ -1,13 +1,31 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, jsonify, make_response, render_template
 
 pages_bp = Blueprint("pages", __name__)
 
 
+@pages_bp.get("/api/health")
+def health():
+    """用于排查 Nginx/反代是否把 /api 转到本应用。"""
+    return jsonify({"success": True})
+
+
+def _html_no_cache(template: str):
+    """避免部署更新后浏览器仍缓存旧版 HTML（例如已删除的 dashboard 区块）。"""
+    resp = make_response(render_template(template))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
 @pages_bp.get("/")
 def index():
-    return render_template("index.html")
+    return _html_no_cache("landing.html")
+
+
+@pages_bp.get("/login")
+def login():
+    return _html_no_cache("index.html")
 
 
 @pages_bp.get("/dashboard")
 def dashboard():
-    return render_template("dashboard.html")
+    return _html_no_cache("dashboard.html")
