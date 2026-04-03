@@ -1,11 +1,36 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from app.extensions import db, bcrypt
 from app.services.db_bootstrap import ensure_schema_compatibility
 from app.services.node_service import bootstrap_nodes_if_needed
+
+
+def _register_api_error_handlers(app: Flask) -> None:
+    """避免 /api/* 返回 HTML 500 页，前端把整页 HTML 当成 JSON message 展示。"""
+
+    @app.errorhandler(Exception)
+    def handle_exception(e: Exception):
+        if isinstance(e, HTTPException):
+            if request.path.startswith("/api/"):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": e.description or str(e),
+                        }
+                    ),
+                    e.code,
+                )
+            return e.get_response()
+
+        app.logger.exception("unhandled exception")
+        if request.path.startswith("/api/"):
+            return jsonify({"success": False, "message": str(e)}), 500
+        raise e
 
 
 def create_app() -> Flask:
@@ -28,6 +53,7 @@ def create_app() -> Flask:
     app.register_blueprint(nodes_bp, url_prefix="/api/nodes")
     app.register_blueprint(plans_bp, url_prefix="/api/plans")
     app.register_blueprint(pages_bp)
+    _register_api_error_handlers(app)
 
     with app.app_context():
         ensure_schema_compatibility()

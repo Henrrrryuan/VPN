@@ -47,11 +47,45 @@
       </div>
     </section>
 
+    <section class="rounded-[1.5rem] border border-indigo-500/25 bg-indigo-500/5 p-5 sm:p-6">
+      <div class="flex flex-wrap items-end justify-between gap-2">
+        <h2 class="text-lg font-bold text-white">X-UI 实时用量</h2>
+        <span id="xui-sync-hint" class="text-xs text-slate-500">同步中…</span>
+      </div>
+      <p class="mt-1 text-sm text-slate-400">到期时间、流量限额、已用与累计总流量均来自当前节点对应的 3X-UI 面板（自动刷新）。</p>
+      <div id="xui-unavailable" class="mt-4 hidden rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400"></div>
+      <div id="xui-content" class="mt-4 hidden grid gap-3 text-sm sm:grid-cols-2">
+        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div class="text-xs text-slate-400">到期时间</div>
+          <div id="xui-expiry" class="mt-1 font-semibold text-white">—</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div class="text-xs text-slate-400">流量限额</div>
+          <div id="xui-total" class="mt-1 font-semibold text-white">—</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div class="text-xs text-slate-400">已用（上+下）</div>
+          <div id="xui-used" class="mt-1 font-semibold text-white">—</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div class="text-xs text-slate-400">累计总流量</div>
+          <div id="xui-alltime" class="mt-1 font-semibold text-white">—</div>
+        </div>
+      </div>
+    </section>
+
     <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
-      <h2 class="text-lg font-bold text-white">我的套餐订阅</h2>
-      <p class="mt-1 text-sm text-slate-400">开始 / 到期时间与剩余流量（购买后记录；流量消耗需另行对接面板统计后更新）</p>
-      <div id="subs-empty" class="mt-4 text-sm text-slate-500">暂无订阅，请在下方购买。</div>
-      <ul id="subs-list" class="mt-4 hidden space-y-3"></ul>
+      <h2 class="text-lg font-bold text-white">购买记录</h2>
+      <p class="mt-1 text-sm text-slate-400">
+        多次购买会叠加到<strong class="text-slate-200">同一 X-UI 客户端</strong>，不在此逐条堆叠展示。
+        <strong class="text-indigo-200">到期、限额、已用、累计流量</strong>请只看上方「X-UI 实时用量」。
+      </p>
+      <div
+        id="order-summary"
+        class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 text-sm leading-relaxed text-slate-300"
+      >
+        加载中…
+      </div>
     </section>
 
     <section class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 sm:p-6">
@@ -100,6 +134,54 @@
 
   function hideBanner() {
     document.getElementById("banner").classList.add("hidden");
+  }
+
+  async function loadXuiStatus() {
+    const hint = document.getElementById("xui-sync-hint");
+    const unav = document.getElementById("xui-unavailable");
+    const content = document.getElementById("xui-content");
+    if (hint) hint.textContent = "同步中…";
+    const resp = await fetch(apiPath("/api/plans/xui-status"), { headers: authHeaders(false) });
+    let body;
+    try {
+      body = await resp.json();
+    } catch (e) {
+      body = null;
+    }
+    if (!resp.ok) {
+      if (unav) {
+        unav.classList.remove("hidden");
+        const m = body && (body.message || (body.data && body.data.message));
+        unav.textContent = m || "无法拉取 X-UI 数据，请稍后重试。";
+      }
+      if (content) content.classList.add("hidden");
+      if (hint) hint.textContent = "";
+      return;
+    }
+    const d = body && body.data;
+    if (!body || !d || !d.available) {
+      if (unav) {
+        unav.classList.remove("hidden");
+        unav.textContent = (d && d.message) || "无数据";
+      }
+      if (content) content.classList.add("hidden");
+      if (hint) hint.textContent = "";
+      return;
+    }
+    if (unav) unav.classList.add("hidden");
+    if (content) content.classList.remove("hidden");
+    if (hint) hint.textContent = "已同步 " + new Date().toLocaleTimeString();
+    const expEl = document.getElementById("xui-expiry");
+    const totEl = document.getElementById("xui-total");
+    const usedEl = document.getElementById("xui-used");
+    const allEl = document.getElementById("xui-alltime");
+    if (expEl)
+      expEl.textContent = d.unlimited_expiry
+        ? "不限"
+        : (d.expiry_iso || "—").replace("T", " ").slice(0, 19);
+    if (totEl) totEl.textContent = d.unlimited_traffic ? "不限" : (d.total_display || "—");
+    if (usedEl) usedEl.textContent = d.used_display || "—";
+    if (allEl) allEl.textContent = d.all_time_display || "—";
   }
 
   async function loadProfile() {
@@ -151,6 +233,7 @@
     document.getElementById("uuid").textContent = data.data.uuid;
     document.getElementById("vless-link").textContent = data.data.vless_link || "—";
     showBanner("ok", "已切换节点");
+    await loadXuiStatus();
   };
 
   window.copyLink = async function () {
@@ -164,53 +247,25 @@
     window.location.href = {{ (site_url('index') | tojson) }};
   };
 
-  function renderSubscriptions(list) {
-    const ul = document.getElementById("subs-list");
-    const empty = document.getElementById("subs-empty");
-    if (!list.length) {
-      ul.classList.add("hidden");
-      empty.classList.remove("hidden");
+  async function loadOrderSummary() {
+    const el = document.getElementById("order-summary");
+    if (!el) return;
+    const resp = await fetch(apiPath("/api/plans/subscriptions"), { headers: authHeaders(false) });
+    if (!resp.ok) {
+      el.textContent = "无法加载购买统计。";
       return;
     }
-    empty.classList.add("hidden");
-    ul.classList.remove("hidden");
-    ul.innerHTML = "";
-    list.forEach((s) => {
-      const li = document.createElement("li");
-      li.className = "rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm";
-      const badge = s.is_active
-        ? '<span class="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-200">有效</span>'
-        : '<span class="rounded-full bg-slate-500/20 px-2 py-0.5 text-xs text-slate-400">已失效</span>';
-      li.innerHTML =
-        '<div class="flex flex-wrap items-center justify-between gap-2">' +
-        '<span class="font-semibold text-white">' +
-        (s.plan_name || "套餐") +
-        "</span> " +
-        badge +
-        "</div>" +
-        '<div class="mt-2 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">' +
-        "<div>开始：" +
-        s.started_at +
-        "</div>" +
-        "<div>到期：" +
-        s.expires_at +
-        "</div>" +
-        "<div>流量上限：" +
-        s.traffic_limit_gb +
-        " GB</div>" +
-        "<div>剩余：" +
-        s.traffic_remaining_gb +
-        " GB</div>" +
-        "</div>";
-      ul.appendChild(li);
-    });
-  }
-
-  async function loadSubscriptions() {
-    const resp = await fetch(apiPath("/api/plans/subscriptions"), { headers: authHeaders(false) });
-    if (!resp.ok) return;
     const data = await resp.json();
-    renderSubscriptions((data.data && data.data.subscriptions) || []);
+    const list = (data.data && data.data.subscriptions) || [];
+    if (!list.length) {
+      el.textContent = "暂无购买记录。在下方选择套餐后，额度会叠加到同一 X-UI 账号；实时数据见上方。";
+      return;
+    }
+    el.innerHTML =
+      "本账号在系统内累计下单 <strong class=\"text-white\">" +
+      list.length +
+      "</strong> 次（后台仍逐笔记账）。<br />" +
+      "当前<strong class=\"text-white\">唯一有效状态</strong>以「X-UI 实时用量」为准，此处不再逐单展示卡片，避免与面板重复、造成多层叠加观感。";
   }
 
   async function loadPlans() {
@@ -260,12 +315,20 @@
       showBanner("err", data.message || "购买失败");
       return;
     }
-    showBanner("ok", "已记录购买");
-    await loadSubscriptions();
+    showBanner("ok", "已叠加套餐并同步面板");
+    if (data.data && data.data.subscription_url) {
+      document.getElementById("vless-link").textContent = data.data.subscription_url;
+    }
+    await loadOrderSummary();
+    await loadXuiStatus();
   }
 
-  loadProfile().then(() => loadSubscriptions());
+  loadProfile().then(function () {
+    loadOrderSummary();
+    loadXuiStatus();
+  });
   loadPlans();
+  setInterval(loadXuiStatus, 30000);
 })();
   </script>
 </body>

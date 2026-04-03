@@ -4,6 +4,7 @@ from flask import current_app
 
 from app.extensions import db
 from app.models import Node
+from app.services.xui_client import merge_xui_base_url
 
 
 def bootstrap_nodes_if_needed() -> None:
@@ -18,14 +19,18 @@ def bootstrap_nodes_if_needed() -> None:
         except json.JSONDecodeError:
             items = []
 
+        wp_global = current_app.config.get("XUI_WEB_BASE_PATH", "")
         if isinstance(items, list):
             for item in items:
                 if not isinstance(item, dict):
                     continue
+                raw_base = item.get("base_url", "")
+                wp = item.get("web_base_path") or wp_global
+                merged = merge_xui_base_url(raw_base, wp or None)
                 node = Node(
                     name=item.get("name", ""),
                     region=item.get("region", ""),
-                    base_url=item.get("base_url", ""),
+                    base_url=merged,
                     username=item.get("username", ""),
                     password=item.get("password", ""),
                     inbound_id=int(item.get("inbound_id", 1)),
@@ -39,7 +44,10 @@ def bootstrap_nodes_if_needed() -> None:
 
     # 兼容旧配置：当 NODES_JSON 未提供时，使用旧版单节点环境变量。
     if created_count == 0:
-        base_url = current_app.config.get("XUI_BASE_URL", "")
+        base_url = merge_xui_base_url(
+            current_app.config.get("XUI_BASE_URL", ""),
+            current_app.config.get("XUI_WEB_BASE_PATH", ""),
+        )
         username = current_app.config.get("XUI_USERNAME", "")
         password = current_app.config.get("XUI_PASSWORD", "")
         if base_url and username and password:

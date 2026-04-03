@@ -6,6 +6,8 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/vpn-saas
+# 确保 systemd 下也能读到 DATABASE_URL、SECRET_KEY、XUI_*（与 load_dotenv 双保险）
+EnvironmentFile=-/opt/vpn-saas/.env
 Environment="HOST=0.0.0.0"
 Environment="PORT=5001"
 ExecStart=/opt/vpn-saas/.venv/bin/python /opt/vpn-saas/run.py

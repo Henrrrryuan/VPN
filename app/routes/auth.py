@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import bcrypt, db
 from app.models import Node, User, UserNodeAccess
@@ -16,62 +17,118 @@ def _validate_register_payload(data: dict) -> tuple[bool, str]:
             return False, f"missing field: {key}"
     if len(data["password"]) < 6:
         return False, "password must be at least 6 chars"
+    em = str(data.get("email", "")).strip().lower()
+    if "@" not in em or not em.split("@", 1)[1]:
+        return False, "请输入有效邮箱（需包含 @）"
     return True, ""
 
 
 @auth_bp.post("/register")
 def register():
-    data = request.get_json(silent=True) or {}
-    ok, msg = _validate_register_payload(data)
-    if not ok:
-        return jsonify({"success": False, "message": msg}), 400
-
-    username = data["username"].strip()
-    email = data["email"].strip().lower()
-    password = data["password"]
-
-    if User.query.filter_by(username=username).first():
-        return jsonify({"success": False, "message": "username already exists"}), 409
-    if User.query.filter_by(email=email).first():
-        return jsonify({"success": False, "message": "email already exists"}), 409
-
-    node = Node.query.filter_by(is_enabled=True).order_by(Node.id.asc()).first()
-    if not node:
-        return jsonify({"success": False, "message": "no enabled node available"}), 503
-
-    xui = XUIClient.from_node(node)
     try:
-        user_uuid, vless_link = xui.create_vless_user(username=username, email=email)
-    except XUIClientError as exc:
-        return jsonify({"success": False, "message": str(exc)}), 502
+        data = request.get_json(silent=True) or {}
+        ok, msg = _validate_register_payload(data)
+        if not ok:
+            return jsonify({"success": False, "message": msg}), 400
 
-    password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-    user = User(
-        username=username,
-        email=email,
-        password_hash=password_hash,
-        uuid=user_uuid,
-        vless_link=vless_link,
-        current_node_id=node.id,
-    )
-    db.session.add(user)
-    db.session.flush()
+        username = data["username"].strip()
+        email = data["email"].strip().lower()
+        password = data["password"]
 
-    node_access = UserNodeAccess(
-        user_id=user.id,
-        node_id=node.id,
-        uuid=user_uuid,
-        vless_link=vless_link,
-    )
-    db.session.add(node_access)
-    db.session.commit()
+        if User.query.filter_by(username=username).first():
+            return jsonify({"success": False, "message": "username already exists"}), 409
+        if User.query.filter_by(email=email).first():
+            return jsonify({"success": False, "message": "email already exists"}), 409
 
-    token = generate_access_token(user.id)
-    return (
-        jsonify(
+        node = Node.query.filter_by(is_enabled=True).order_by(Node.id.asc()).first()
+        if not node:
+            return jsonify({"success": False, "message": "no enabled node available"}), 503
+
+        xui = XUIClient.from_node(node)
+        try:
+            user_uuid, vless_link = xui.create_vless_user(username=username, email=email)
+        except XUIClientError as exc:
+            return jsonify({"success": False, "message": str(exc)}), 502
+
+        password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+        user = User(
+            username=username,
+            email=email,
+            password_hash=password_hash,
+            uuid=user_uuid,
+            vless_link=vless_link,
+            current_node_id=node.id,
+        )
+        db.session.add(user)
+        db.session.flush()
+
+        node_access = UserNodeAccess(
+            user_id=user.id,
+            node_id=node.id,
+            uuid=user_uuid,
+            vless_link=vless_link,
+        )
+        db.session.add(node_access)
+        db.session.commit()
+
+        token = generate_access_token(user.id)
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "register success",
+                    "data": {
+                        "token": token,
+                        "user": {
+                            "id": user.id,
+                            "username": user.username,
+                            "email": user.email,
+                            "uuid": user.uuid,
+                            "vless_link": user.vless_link,
+                            "current_node_id": user.current_node_id,
+                        },
+                    },
+                }
+            ),
+            201,
+        )
+    except IntegrityError as exc:
+        db.session.rollback()
+        current_app.logger.exception("register integrity error")
+        return jsonify({"success": False, "message": "数据冲突（用户名或邮箱可能已存在）"}), 409
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        current_app.logger.exception("register database error")
+        return jsonify({"success": False, "message": f"数据库错误：{exc}"}), 500
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.exception("register failed")
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+
+@auth_bp.post("/login")
+def login():
+    try:
+        data = request.get_json(silent=True) or {}
+        identity = (data.get("identity") or "").strip()
+        password = data.get("password") or ""
+        if not identity or not password:
+            return jsonify({"success": False, "message": "identity and password required"}), 400
+
+        user = User.query.filter(
+            (User.username == identity) | (User.email == identity.lower())
+        ).first()
+        if not user:
+            return jsonify({"success": False, "message": "invalid credentials"}), 401
+
+        if not bcrypt.check_password_hash(user.password_hash, password):
+            return jsonify({"success": False, "message": "invalid credentials"}), 401
+
+        token = generate_access_token(user.id)
+        return jsonify(
             {
                 "success": True,
-                "message": "register success",
+                "message": "login success",
                 "data": {
                     "token": token,
                     "user": {
@@ -84,44 +141,13 @@ def register():
                     },
                 },
             }
-        ),
-        201,
-    )
-
-
-@auth_bp.post("/login")
-def login():
-    data = request.get_json(silent=True) or {}
-    identity = (data.get("identity") or "").strip()
-    password = data.get("password") or ""
-    if not identity or not password:
-        return jsonify({"success": False, "message": "identity and password required"}), 400
-
-    user = User.query.filter((User.username == identity) | (User.email == identity.lower())).first()
-    if not user:
-        return jsonify({"success": False, "message": "invalid credentials"}), 401
-
-    if not bcrypt.check_password_hash(user.password_hash, password):
-        return jsonify({"success": False, "message": "invalid credentials"}), 401
-
-    token = generate_access_token(user.id)
-    return jsonify(
-        {
-            "success": True,
-            "message": "login success",
-            "data": {
-                "token": token,
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "uuid": user.uuid,
-                    "vless_link": user.vless_link,
-                    "current_node_id": user.current_node_id,
-                },
-            },
-        }
-    )
+        )
+    except SQLAlchemyError as exc:
+        current_app.logger.exception("login database error")
+        return jsonify({"success": False, "message": f"数据库错误：{exc}"}), 500
+    except Exception as exc:
+        current_app.logger.exception("login failed")
+        return jsonify({"success": False, "message": str(exc)}), 500
 
 
 @auth_bp.get("/me")

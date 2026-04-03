@@ -117,11 +117,14 @@ curl -X POST http://127.0.0.1:5001/api/nodes/select \
 
 ```bash
 curl http://127.0.0.1:5001/api/plans
+curl http://127.0.0.1:5001/api/plans/xui-status -H "Authorization: Bearer <TOKEN>"
 curl http://127.0.0.1:5001/api/plans/subscriptions -H "Authorization: Bearer <TOKEN>"
 curl -X POST http://127.0.0.1:5001/api/plans/purchase \
   -H "Content-Type: application/json" -H "Authorization: Bearer <TOKEN>" \
   -d '{"plan_id": 1}'
 ```
+
+购买成功后会调用 3X-UI 写入/更新客户端流量与到期时间，并在 JSON 中返回 `subscription_url` 与 `node`（详见 `deploy/XUI_PROVISIONING.md`）。
 
 ## Notes
 
@@ -134,10 +137,23 @@ curl -X POST http://127.0.0.1:5001/api/plans/purchase \
 
 示例路径：`/opt/vpn-saas`
 
+**从本机一键 rsync（需已能 `ssh root@139.180.136.98` 登录）：**
+
+```bash
+cd /path/to/VPN   # 项目根目录
+chmod +x deploy/rsync_to_vps.sh
+./deploy/rsync_to_vps.sh
+# 可选：RSYNC_HOST=root@你的IP RSYNC_DEST=/opt/vpn-saas ./deploy/rsync_to_vps.sh
+```
+
+脚本会排除 `.env`、`instance/`、`.venv`，避免覆盖线上密钥与数据库。
+
+或手动：
+
 ```bash
 sudo mkdir -p /opt/vpn-saas
 sudo chown -R $USER:$USER /opt/vpn-saas
-# 把项目文件上传到 /opt/vpn-saas（git clone / scp 均可）
+# git clone / scp / rsync 均可
 ```
 
 ### 2) 安装依赖并配置 `.env`

@@ -14,6 +14,9 @@ class Config:
     AUTH_PAGE_BASE_URL = os.getenv("AUTH_PAGE_BASE_URL", "").strip().rstrip("/")
 
     XUI_BASE_URL = os.getenv("XUI_BASE_URL", "http://127.0.0.1:2053").rstrip("/")
+    # 3X-UI「面板设置」中的 Web 基础路径（如 /LIpz75bRbfQtHWunT5），与浏览器地址栏 /xxx/panel/inbounds 一致。
+    # 若 XUI_BASE_URL 已含该路径可留空；仅写 http://ip:port 时必须设置。
+    XUI_WEB_BASE_PATH = os.getenv("XUI_WEB_BASE_PATH", "").strip()
     XUI_USERNAME = os.getenv("XUI_USERNAME", "admin")
     XUI_PASSWORD = os.getenv("XUI_PASSWORD", "admin")
     XUI_INBOUND_ID = int(os.getenv("XUI_INBOUND_ID", "1"))
