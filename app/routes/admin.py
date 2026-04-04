@@ -1,4 +1,4 @@
-"""管理员 API：在 SaaS 侧调整用户到期时间与流量上限，并同步到 3X-UI 面板。"""
+"""管理员 API：支付订单确认后调用 X-UI 开通。用户流量、到期、IP 限制等请在 3X-UI 面板管理。"""
 
 from datetime import datetime, timezone
 from functools import wraps
@@ -6,10 +6,11 @@ from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
 
 from app.extensions import db
-from app.models import Subscription, User
-from app.routes.plans import _node_for_user, _subscription_dict
-from app.services.subscription_provisioning import _remaining_gb_from_snapshot
-from app.services.xui_client import XUIClient, XUIClientError, _traffic_limit_bytes_from_gb
+from app.models import PaymentOrder
+from app.services.subscription_provisioning import (
+    SubscriptionProvisioningError,
+    provision_order_quota,
+)
 
 admin_bp = Blueprint("admin_api", __name__)
 
@@ -19,7 +20,12 @@ def admin_required(handler):
     def wrapper(*args, **kwargs):
         expected = (current_app.config.get("ADMIN_TOKEN") or "").strip()
         if not expected:
-            return jsonify({"success": False, "message": "admin disabled (set ADMIN_TOKEN)"}), 404
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "服务器未配置 ADMIN_TOKEN（请在项目根目录 .env 中设置并重启进程，勿仅修改 .env.example）",
+                }
+            ), 403
         got = request.headers.get("X-Admin-Token", "").strip()
         if got != expected:
             return jsonify({"success": False, "message": "admin unauthorized"}), 401
@@ -28,107 +34,70 @@ def admin_required(handler):
     return wrapper
 
 
-@admin_bp.get("/users")
+@admin_bp.get("/orders")
 @admin_required
-def list_users():
-    rows = User.query.order_by(User.id.asc()).all()
+def list_payment_orders():
+    rows = PaymentOrder.query.order_by(PaymentOrder.id.desc()).limit(300).all()
     return jsonify(
         {
             "success": True,
             "data": {
-                "users": [
+                "orders": [
                     {
-                        "id": u.id,
-                        "username": u.username,
-                        "email": u.email,
-                        "uuid": u.uuid,
-                        "current_node_id": u.current_node_id,
+                        "id": r.id,
+                        "order_id": r.public_order_id,
+                        "user_email": r.user_email,
+                        "plan": r.plan_label,
+                        "period": r.period_label,
+                        "amount": float(r.amount),
+                        "alipay_trade_no": r.alipay_trade_no,
+                        "status": r.status,
+                        "client_uuid": r.client_uuid,
+                        "subscription_url": r.subscription_url,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
                     }
-                    for u in rows
+                    for r in rows
                 ]
             },
         }
     )
 
 
-@admin_bp.post("/users/<int:user_id>/limits")
+@admin_bp.post("/orders/<int:order_id>/confirm")
 @admin_required
-def set_user_limits(user_id: int):
-    """
-    将用户到期时间与总流量上限写入 3X-UI，并尽量同步最近一条 subscriptions 记录。
-    JSON: { "expiry_time_ms": int, "total_gb": number }
-    - expiry_time_ms: Unix 毫秒，0 表示不限到期
-    - total_gb: 总限额（GB），0 或省略表示不限流量（与面板 total=0 一致）
-    """
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"success": False, "message": "user not found"}), 404
-
-    payload = request.get_json(silent=True) or {}
-    if "expiry_time_ms" not in payload:
-        return jsonify({"success": False, "message": "expiry_time_ms is required"}), 400
+def confirm_payment_order(order_id: int):
+    row = PaymentOrder.query.get(order_id)
+    if not row:
+        return jsonify({"success": False, "message": "order not found"}), 404
+    if row.status != "waiting":
+        return jsonify({"success": False, "message": "订单已处理或非 waiting 状态"}), 400
 
     try:
-        exp_ms = int(payload["expiry_time_ms"])
-    except (TypeError, ValueError):
-        return jsonify({"success": False, "message": "expiry_time_ms must be an integer"}), 400
-
-    raw_gb = payload.get("total_gb")
-    if raw_gb is None:
-        total_gb = 0.0
-    else:
-        try:
-            total_gb = float(raw_gb)
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "total_gb must be a number"}), 400
-
-    node = _node_for_user(user)
-    if not node:
-        return jsonify({"success": False, "message": "no enabled node"}), 502
-
-    total_bytes = _traffic_limit_bytes_from_gb(total_gb if total_gb and total_gb > 0 else None)
-
-    xui = XUIClient.from_node(node)
-    try:
-        link = xui.update_client_quota_raw(
-            client_uuid=user.uuid,
-            username=user.username,
-            email=user.email,
-            total_bytes=total_bytes,
-            expiry_time_ms=exp_ms,
+        result = provision_order_quota(
+            row.user_id,
+            row.plan_id,
+            float(row.traffic_gb),
+            int(row.duration_days),
         )
-        snap = xui.get_client_traffic_snapshot(user.email, user.uuid)
-    except XUIClientError as exc:
+    except SubscriptionProvisioningError as exc:
         return jsonify({"success": False, "message": str(exc)}), 502
 
-    user.vless_link = link or user.vless_link
-
-    sub = (
-        Subscription.query.filter_by(user_id=user.id)
-        .order_by(Subscription.started_at.desc())
-        .first()
-    )
-    if sub and snap:
-        if exp_ms > 0:
-            sub.expires_at = datetime.fromtimestamp(exp_ms / 1000.0, tz=timezone.utc)
-        if total_gb and total_gb > 0:
-            sub.traffic_limit_gb = total_gb
-        sub.traffic_remaining_gb = _remaining_gb_from_snapshot(
-            int(snap.get("total") or 0),
-            int(snap.get("up") or 0),
-            int(snap.get("down") or 0),
-        )
-
+    fresh = PaymentOrder.query.get(order_id)
+    if not fresh:
+        return jsonify({"success": False, "message": "order missing after provision"}), 500
+    fresh.status = "completed"
+    fresh.client_uuid = result.client_uuid
+    fresh.subscription_url = result.subscription_url
+    fresh.completed_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify(
         {
             "success": True,
-            "message": "limits synced to x-ui",
+            "message": "已开通并同步 X-UI",
             "data": {
-                "user_id": user.id,
-                "subscription_url": link,
-                "subscription": _subscription_dict(sub) if sub else None,
+                "client_uuid": result.client_uuid,
+                "subscription_url": result.subscription_url,
             },
         }
     )

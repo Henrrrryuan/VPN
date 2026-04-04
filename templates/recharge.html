@@ -1,0 +1,219 @@
+{% from '_site_urls.html' import site_url %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="api-base" content="{{ request.script_root or '' }}" />
+  <title>流量包支付 - VPN SaaS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#6366f1" />
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+    <div class="absolute top-60 right-0 h-[380px] w-[640px] rounded-full bg-fuchsia-500/12 blur-3xl"></div>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-slate-950/60 backdrop-blur-xl">
+    <div class="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
+      <a href="{{ site_url('dashboard') }}" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10">
+        <span aria-hidden="true">←</span> 返回控制台
+      </a>
+      <span class="text-sm font-semibold text-white">流量包支付</span>
+      <button type="button" onclick="logout()" class="rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/15 sm:text-sm">退出</button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-4xl space-y-6 px-4 py-8">
+    <div id="recharge-banner" class="hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+    <section class="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20 backdrop-blur-xl sm:p-7">
+      <h1 class="text-lg font-bold text-white">选择流量包</h1>
+      <p class="mt-1 text-sm text-slate-400">一次性叠加流量，到期时间不变。</p>
+      <div id="pack-radios" class="mt-5 grid gap-3 sm:grid-cols-3"></div>
+    </section>
+
+    <section class="rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/[0.07] p-5 shadow-xl shadow-indigo-500/10 backdrop-blur-xl sm:p-6">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div class="text-xs text-slate-400">应付金额</div>
+          <div id="recharge-total" class="mt-1 text-3xl font-extrabold tabular-nums text-white">¥—</div>
+          <p id="recharge-summary" class="mt-2 text-sm text-slate-400">—</p>
+        </div>
+        <button
+          type="button"
+          id="btn-pay"
+          class="min-w-[200px] rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          立即支付 <span id="pay-btn-amount" class="tabular-nums">¥—</span>
+        </button>
+      </div>
+      <p class="mt-4 text-xs text-slate-500">支付通道接入前，点击将直接请求后端充值接口（与控制台「购买」一致）。若需先走第三方支付，可在此处改为仅创建订单。</p>
+    </section>
+  </main>
+
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0 peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/40 border-white/10 hover:border-white/20"
+  ></div>
+
+  <script>
+(function () {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "{{ (site_url('login') | trim) }}";
+    throw new Error("no token");
+  }
+
+  function apiPath(path) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
+  }
+
+  function authHeaders(json) {
+    const h = { Authorization: "Bearer " + token };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+
+  window.logout = function () {
+    localStorage.removeItem("token");
+    window.location.href = "{{ (site_url('login') | trim) }}";
+  };
+
+  const PACKS = [
+    { gb: 50, title: "流量包 S", sub: "+50GB", price: 15, recommended: false },
+    { gb: 100, title: "流量包 M", sub: "+100GB", price: 25, recommended: true },
+    { gb: 200, title: "流量包 L", sub: "+200GB", price: 45, recommended: false },
+  ];
+
+  function parseGbQuery(q) {
+    const n = Number(q);
+    if (n === 50 || n === 100 || n === 200) return n;
+    return 100;
+  }
+
+  let selectedGb = parseGbQuery(new URLSearchParams(window.location.search).get("gb"));
+
+  function currentPack() {
+    return PACKS.find(function (p) {
+      return p.gb === selectedGb;
+    }) || PACKS[1];
+  }
+
+  function updateTotals() {
+    const p = currentPack();
+    const label = "¥" + p.price;
+    const tot = document.getElementById("recharge-total");
+    const payAmt = document.getElementById("pay-btn-amount");
+    const sum = document.getElementById("recharge-summary");
+    if (tot) tot.textContent = label;
+    if (payAmt) payAmt.textContent = label;
+    if (sum) sum.textContent = p.title + " · " + p.sub + " · 叠加 " + p.gb + "GB";
+  }
+
+  function showBanner(kind, msg) {
+    const b = document.getElementById("recharge-banner");
+    if (!b) return;
+    b.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    if (kind === "err") {
+      b.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
+    } else {
+      b.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    }
+    b.textContent = msg;
+    b.classList.remove("hidden");
+  }
+
+  function renderPacks() {
+    const host = document.getElementById("pack-radios");
+    if (!host) return;
+    const cardCls =
+      "rounded-2xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-sm transition peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/40 hover:border-white/20";
+    host.innerHTML = PACKS.map(function (p) {
+      const checked = selectedGb === p.gb ? "checked" : "";
+      return (
+        '<label class="relative block cursor-pointer">' +
+        '<input type="radio" class="peer sr-only" name="recharge-pack" value="' +
+        p.gb +
+        '" ' +
+        checked +
+        ' />' +
+        '<div class="' +
+        cardCls +
+        '">' +
+        (p.recommended
+          ? '<span class="absolute right-3 top-3 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">推荐</span>'
+          : "") +
+        '<div class="text-sm font-bold text-white">' +
+        p.title +
+        "</div>" +
+        '<div class="mt-1 text-xs text-slate-400">' +
+        p.sub +
+        "</div>" +
+        '<div class="mt-3 text-2xl font-extrabold tabular-nums text-white">¥' +
+        p.price +
+        "</div>" +
+        "</div></label>"
+      );
+    }).join("");
+
+    host.querySelectorAll('input[name="recharge-pack"]').forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        if (inp.checked) {
+          selectedGb = Number(inp.value);
+          var u = new URL(window.location.href);
+          u.searchParams.set("gb", String(selectedGb));
+          window.history.replaceState({}, "", u.pathname + u.search);
+          updateTotals();
+        }
+      });
+    });
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) {
+      setTimeout(r, ms);
+    });
+  }
+
+  document.getElementById("btn-pay").addEventListener("click", async function () {
+    const btn = document.getElementById("btn-pay");
+    const p = currentPack();
+    const oldHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = "处理中…";
+    try {
+      const resp = await fetch(apiPath("/api/plans/recharge"), {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ traffic_gb: p.gb }),
+      });
+      const body = await resp.json().catch(function () {
+        return null;
+      });
+      if (!resp.ok || !body || !body.success) {
+        showBanner("err", (body && body.message) || "充值失败");
+        return;
+      }
+      showBanner("ok", (body && body.message) || "充值成功，正在返回控制台…");
+      await sleep(900);
+      window.location.href = "{{ (site_url('dashboard') | trim) }}";
+    } catch (e) {
+      showBanner("err", "网络异常，充值失败");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+      updateTotals();
+    }
+  });
+
+  renderPacks();
+  updateTotals();
+})();
+  </script>
+</body>
+</html>

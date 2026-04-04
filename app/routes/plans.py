@@ -1,8 +1,21 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
-from app.models import Node, Plan, Subscription
+from app.extensions import db
+from app.models import Node, PaymentOrder, Plan, Subscription
+from app.services.checkout_catalog import (
+    TIER_LABELS,
+    TIER_TO_PLAN_NAME,
+    PERIOD_LABELS,
+    expected_amount,
+    resolve_traffic_and_duration,
+    VALID_PERIODS,
+    VALID_TIERS,
+)
 from app.services.subscription_provisioning import (
     SubscriptionProvisioningError,
     provision_recharge_for_user,
@@ -70,6 +83,7 @@ def _local_fallback_dict(user) -> dict | None:
     """最近一次订单记录，面板不可用时给用户看参考（与 X-UI 可能不一致）。"""
     s = (
         Subscription.query.filter_by(user_id=user.id)
+        .options(joinedload(Subscription.plan))
         .order_by(Subscription.started_at.desc())
         .first()
     )
@@ -87,6 +101,7 @@ def _local_fallback_dict(user) -> dict | None:
 def _has_active_plan_local(user) -> bool:
     s = (
         Subscription.query.filter_by(user_id=user.id)
+        .options(joinedload(Subscription.plan))
         .order_by(Subscription.started_at.desc())
         .first()
     )
@@ -94,7 +109,10 @@ def _has_active_plan_local(user) -> bool:
         return False
     now = datetime.now(timezone.utc)
     exp = _aware(s.expires_at)
-    return bool(exp > now and float(s.traffic_remaining_gb or 0) > 0)
+    not_expired = exp > now
+    has_remaining = float(s.traffic_remaining_gb or 0) > 0
+    unlimited_cap = float(s.traffic_limit_gb or 0) <= 0
+    return bool(not_expired and (has_remaining or unlimited_cap))
 
 
 @plans_bp.get("")
@@ -178,6 +196,8 @@ def xui_status():
             and (exp_ms <= 0 or exp_ms > int(datetime.now(timezone.utc).timestamp() * 1000))
             and (unlimited_traffic or (remaining_bytes is not None and remaining_bytes > 0))
         )
+        # 面板快照滞后（仍显示 total=0）时，以库内订阅为准，避免控制台一直像「未开通」
+        has_active_plan = has_active_plan or _has_active_plan_local(user)
 
         local_fb = _local_fallback_dict(user)
         return jsonify(
@@ -249,6 +269,93 @@ def recharge():
             "data": {
                 "subscription_url": result.subscription_url,
                 "client_uuid": result.client_uuid,
+            },
+        }
+    )
+
+
+@plans_bp.post("/checkout-order")
+@jwt_required
+def checkout_order_create():
+    """
+    用户提交支付宝交易号后创建待审核订单（不立即开通）。
+    JSON: { "order_id", "tier", "period", "trade_no", "amount" }
+    - tier: starter | standard | pro
+    - period: weekly | monthly | quarterly | half | yearly
+    """
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    tier = str(payload.get("tier") or "").strip().lower()
+    period_key = str(payload.get("period") or "").strip().lower()
+    trade_no = str(payload.get("trade_no") or "").strip()
+    public_oid = str(payload.get("order_id") or "").strip()
+
+    if tier not in VALID_TIERS:
+        return jsonify({"success": False, "message": "无效的套餐 tier"}), 400
+    if period_key not in VALID_PERIODS:
+        return jsonify({"success": False, "message": "无效的计费周期 period"}), 400
+    if not trade_no:
+        return jsonify({"success": False, "message": "请填写支付宝交易号"}), 400
+    if not public_oid or not public_oid.startswith("ORD"):
+        return jsonify({"success": False, "message": "无效的 order_id"}), 400
+
+    exp = expected_amount(tier, period_key)
+    if exp is None:
+        return jsonify({"success": False, "message": "价格表无此组合"}), 400
+
+    raw_amt = payload.get("amount")
+    try:
+        amt_client = Decimal(str(raw_amt))
+    except Exception:
+        return jsonify({"success": False, "message": "amount 必须是数字"}), 400
+
+    if amt_client != exp:
+        return jsonify({"success": False, "message": "金额与服务器价目不一致，请刷新页面"}), 400
+
+    if PaymentOrder.query.filter_by(alipay_trade_no=trade_no).first():
+        return jsonify({"success": False, "message": "该支付宝订单号已提交过"}), 409
+
+    plan_name = TIER_TO_PLAN_NAME[tier]
+    plan = Plan.query.filter_by(name=plan_name, is_enabled=True).first()
+    if not plan:
+        return jsonify({"success": False, "message": f"未找到套餐 {plan_name}"}), 400
+
+    try:
+        traffic_gb, duration_days = resolve_traffic_and_duration(tier, period_key)
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+    row = PaymentOrder(
+        public_order_id=public_oid,
+        user_id=user.id,
+        user_email=user.email,
+        plan_slug=tier,
+        period_key=period_key,
+        plan_label=TIER_LABELS.get(tier, tier),
+        period_label=PERIOD_LABELS.get(period_key, period_key),
+        amount=exp,
+        alipay_trade_no=trade_no,
+        status="waiting",
+        traffic_gb=traffic_gb,
+        duration_days=duration_days,
+        plan_id=plan.id,
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "订单号重复，请重新打开支付页"}), 409
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "订单已提交，请等待人工审核开通",
+            "data": {
+                "order_id": public_oid,
+                "db_id": row.id,
+                "status": "waiting",
             },
         }
     )

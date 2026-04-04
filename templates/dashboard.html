@@ -38,12 +38,40 @@
       <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div><span class="text-slate-400">用户名</span> <span id="username" class="ml-2 font-medium text-white">-</span></div>
         <div><span class="text-slate-400">邮箱</span> <span id="email" class="ml-2 font-medium text-white">-</span></div>
+        <div class="sm:col-span-2">
+          <span class="text-slate-400">当前套餐</span>
+          <span id="current-plan" class="ml-2 font-medium text-white">—</span>
+        </div>
         <div id="uuid-row" class="sm:col-span-2 hidden"><span class="text-slate-400">UUID</span> <span id="uuid" class="ml-2 break-all font-mono text-xs text-slate-200">-</span></div>
       </div>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <label class="text-sm text-slate-400">节点</label>
         <select id="node-select" class="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-sm outline-none focus:border-indigo-400/50"></select>
         <button type="button" onclick="switchNode()" class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">切换节点</button>
+      </div>
+    </section>
+
+    <section id="vless-section" class="relative rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
+      <h2 class="text-lg font-bold text-white">订阅链接 (VLESS)</h2>
+      <div id="vless-content" class="transition-all duration-300 ease-out">
+        <div id="vless-link" class="mt-3 break-all rounded-xl border border-white/10 bg-slate-950/40 p-4 font-mono text-xs text-slate-200">加载中…</div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="copy-link-btn" type="button" onclick="copyLink()" class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95">复制链接</button>
+        </div>
+      </div>
+      <div
+        id="vless-lock-overlay"
+        class="hidden absolute inset-0 z-10 flex items-center justify-center rounded-[1.5rem] bg-slate-950/55 backdrop-blur-[1px]"
+      >
+        <div class="mx-4 w-full max-w-lg rounded-2xl border border-white/15 bg-slate-950/70 p-5 text-center">
+          <div class="text-lg font-semibold text-white">🔒 订阅未解锁</div>
+          <p class="mt-2 text-sm text-slate-200">购买套餐后即可获取UUID和订阅链接</p>
+          <div class="mt-4">
+            <button type="button" onclick="goBuyNow()" class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500">
+              立即解锁
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -133,13 +161,14 @@
             <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
               <div id="upgrade-basic-name" class="text-sm font-semibold text-slate-200">Starter</div>
               <div id="upgrade-basic-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-basic-price" class="mt-3 text-2xl font-extrabold text-white">¥29<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-basic-price" class="mt-3 text-2xl font-extrabold text-white">¥12<span class="ml-1 text-sm font-semibold text-slate-400">/周</span></div>
               <div id="upgrade-basic-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-basic"
                 type="button"
                 data-plan-id=""
-                onclick="onUpgradeClick(this)"
+                data-checkout-tier="starter"
+                onclick="goCheckout(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 选择 Starter 套餐
@@ -147,16 +176,17 @@
             </div>
 
             <div class="upgrade-card relative rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
-              <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Standard</div>
+              <div id="upgrade-pro-name" class="text-sm font-semibold text-slate-200">Standard</div>
               <span class="absolute right-3 top-3 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">推荐</span>
               <div id="upgrade-pro-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-pro-price" class="mt-3 text-2xl font-extrabold text-white">¥49<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-pro-price" class="mt-3 text-2xl font-extrabold text-white">¥19<span class="ml-1 text-sm font-semibold text-slate-400">/周</span></div>
               <div id="upgrade-pro-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-pro"
                 type="button"
                 data-plan-id=""
-                onclick="onUpgradeClick(this)"
+                data-checkout-tier="standard"
+                onclick="goCheckout(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 选择 Standard 套餐
@@ -166,13 +196,14 @@
             <div class="upgrade-card rounded-[1.25rem] border border-white/10 bg-slate-950/20 p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10">
               <div id="upgrade-premium-name" class="text-sm font-semibold text-slate-200">Pro</div>
               <div id="upgrade-premium-traffic" class="mt-1 text-xs text-slate-400">—</div>
-              <div id="upgrade-premium-price" class="mt-3 text-2xl font-extrabold text-white">¥69<span class="ml-1 text-sm font-semibold text-slate-400">/月</span></div>
+              <div id="upgrade-premium-price" class="mt-3 text-2xl font-extrabold text-white">¥25<span class="ml-1 text-sm font-semibold text-slate-400">/周</span></div>
               <div id="upgrade-premium-cycles" class="mt-3 grid grid-cols-2 gap-2"></div>
               <button
                 id="upgrade-btn-premium"
                 type="button"
                 data-plan-id=""
-                onclick="onUpgradeClick(this)"
+                data-checkout-tier="pro"
+                onclick="goCheckout(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 选择 Pro 套餐
@@ -195,7 +226,7 @@
                 id="recharge-btn-50"
                 type="button"
                 data-traffic-gb="50"
-                onclick="onRechargeClick(this)"
+                onclick="goRecharge(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 购买
@@ -210,7 +241,7 @@
                 id="recharge-btn-100"
                 type="button"
                 data-traffic-gb="100"
-                onclick="onRechargeClick(this)"
+                onclick="goRecharge(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 购买
@@ -224,7 +255,7 @@
                 id="recharge-btn-200"
                 type="button"
                 data-traffic-gb="200"
-                onclick="onRechargeClick(this)"
+                onclick="goRecharge(this)"
                 class="mt-4 w-full rounded-2xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500"
               >
                 购买
@@ -232,30 +263,6 @@
             </div>
           </div>
           <p class="mt-3 text-xs text-slate-400">购买后叠加当前剩余流量；到期时间不改变。</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="vless-section" class="relative rounded-[1.5rem] border border-indigo-500/20 bg-indigo-500/5 p-5 sm:p-6">
-      <h2 class="text-lg font-bold text-white">订阅链接 (VLESS)</h2>
-      <div id="vless-content" class="transition-all duration-300 ease-out">
-        <div id="vless-link" class="mt-3 break-all rounded-xl border border-white/10 bg-slate-950/40 p-4 font-mono text-xs text-slate-200">加载中…</div>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <button id="copy-link-btn" type="button" onclick="copyLink()" class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95">复制链接</button>
-        </div>
-      </div>
-      <div
-        id="vless-lock-overlay"
-        class="hidden absolute inset-0 z-10 flex items-center justify-center rounded-[1.5rem] bg-slate-950/55 backdrop-blur-[1px]"
-      >
-        <div class="mx-4 w-full max-w-lg rounded-2xl border border-white/15 bg-slate-950/70 p-5 text-center">
-          <div class="text-lg font-semibold text-white">🔒 订阅未解锁</div>
-          <p class="mt-2 text-sm text-slate-200">购买套餐后即可获取UUID和订阅链接</p>
-          <div class="mt-4">
-            <button type="button" onclick="goBuyNow()" class="rounded-xl bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500">
-              立即解锁
-            </button>
-          </div>
         </div>
       </div>
     </section>
@@ -705,6 +712,7 @@
       fillFromLocal(d.local_fallback);
       // 面板不可用时不尝试推断当前套餐（避免误差）
       currentPlanLimitGb = null;
+      syncPlanAndAccessFromMe();
       return;
     }
 
@@ -778,6 +786,7 @@
 
     // 每次成功拉取 X-UI 状态后，根据最新的 total_bytes 重新高亮当前套餐
     await initRechargeUpgradeCards();
+    syncPlanAndAccessFromMe();
   }
 
   function formatMoneyUSD(n) {
@@ -793,39 +802,39 @@
     return x.toFixed(x % 1 === 0 ? 0 : 2).replace(/\\.00$/, "") + "GB/月";
   }
 
-  /** 与定价表一致的固定价（月 / 季 / 半年 / 年），不按公式推算 */
+  /** 大标题用周价；下方四格为月/季/半年/年（与截图一致，避免与周价重复） */
   var DISPLAY_PLAN_PRICES = {
-    starter: { monthly: 29, quarter: 79, half: 149, year: 279, displayGb: 80 },
-    standard: { monthly: 49, quarter: 129, half: 249, year: 469, displayGb: 150 },
-    pro: { monthly: 69, quarter: 179, half: 349, year: 669, displayGb: 200 },
+    starter: { weekly: 12, monthly: 29, quarter: 79, half: 149, year: 279, displayGb: 80 },
+    standard: { weekly: 19, monthly: 49, quarter: 129, half: 249, year: 469, displayGb: 150 },
+    pro: { weekly: 25, monthly: 69, quarter: 179, half: 349, year: 669, displayGb: 200 },
   };
 
   function renderBillingCycleCards(container, p) {
     if (!container || !p) return;
-    var m = Number(p.monthly);
+    var mo = Number(p.monthly);
     var q = Number(p.quarter);
     var h = Number(p.half);
     var y = Number(p.year);
-    if (![m, q, h, y].every(function (x) { return Number.isFinite(x) && x > 0; })) {
+    if (![mo, q, h, y].every(function (x) { return Number.isFinite(x) && x > 0; })) {
       container.innerHTML = "";
       return;
     }
     container.innerHTML = [
-      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">月付</div><div class="mt-1 font-semibold text-white">¥' + m + "</div></div>",
+      '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">月付</div><div class="mt-1 font-semibold text-white">¥' + mo + "</div></div>",
       '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">季付 <span class=\"text-[10px]\">(-10%)</span></div><div class="mt-1 font-semibold text-white">¥' + q + "</div></div>",
       '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">半年 <span class=\"text-[10px]\">(-15%)</span></div><div class="mt-1 font-semibold text-white">¥' + h + "</div></div>",
       '<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-xs"><div class="text-slate-400">年付 <span class=\"text-[10px]\">(-20%)</span></div><div class="mt-1 font-semibold text-white">¥' + y + "</div></div>"
     ].join("");
   }
 
-  function formatUpgradeMonthlyPriceEl(el, monthlyYuan) {
+  function formatUpgradeWeeklyPriceEl(el, weeklyYuan) {
     if (!el) return;
-    var n = Number(monthlyYuan);
+    var n = Number(weeklyYuan);
     if (!Number.isFinite(n) || n <= 0) {
       el.textContent = "—";
       return;
     }
-    el.innerHTML = "¥" + n + '<span class="ml-1 text-sm font-semibold text-slate-400">/月</span>';
+    el.innerHTML = "¥" + n + '<span class="ml-1 text-sm font-semibold text-slate-400">/周</span>';
   }
 
   function sleep(ms) {
@@ -877,9 +886,27 @@
   };
 
   window.goBuyNow = function () {
-    window.setRechargeUpgradeTab("upgrade");
-    var sec = document.getElementById("plan-section");
-    if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.location.href = "{{ (site_url('checkout') | trim) }}?plan=starter";
+  };
+
+  /** 跳转支付页；当前套餐按钮 disabled 时不跳转 */
+  window.goCheckout = function (btn) {
+    if (!btn || btn.disabled) return;
+    var tier = btn.getAttribute("data-checkout-tier");
+    if (!tier) return;
+    var base = "{{ (site_url('checkout') | trim) }}";
+    var join = base.indexOf("?") >= 0 ? "&" : "?";
+    window.location.href = base + join + "plan=" + encodeURIComponent(tier);
+  };
+
+  /** 流量包支付页 /recharge?gb= */
+  window.goRecharge = function (btn) {
+    if (!btn || btn.disabled) return;
+    var gb = btn.getAttribute("data-traffic-gb");
+    if (!gb) return;
+    var base = "{{ (site_url('recharge') | trim) }}";
+    var join = base.indexOf("?") >= 0 ? "&" : "?";
+    window.location.href = base + join + "gb=" + encodeURIComponent(gb);
   };
 
   async function initRechargeUpgradeCards() {
@@ -926,7 +953,7 @@
       const basicBtn = document.getElementById("upgrade-btn-basic");
       if (basicTraffic && basicPrice && basicBtn) {
         basicTraffic.textContent = formatTrafficMonthly(P0.displayGb);
-        formatUpgradeMonthlyPriceEl(basicPrice, P0.monthly);
+        formatUpgradeWeeklyPriceEl(basicPrice, P0.weekly);
         renderBillingCycleCards(basicCycles, P0);
         basicBtn.setAttribute("data-plan-id", String(basic.id || 1));
       }
@@ -937,7 +964,7 @@
       const proBtn = document.getElementById("upgrade-btn-pro");
       if (proTraffic && proPrice && proBtn) {
         proTraffic.textContent = formatTrafficMonthly(P1.displayGb);
-        formatUpgradeMonthlyPriceEl(proPrice, P1.monthly);
+        formatUpgradeWeeklyPriceEl(proPrice, P1.weekly);
         renderBillingCycleCards(proCycles, P1);
         proBtn.setAttribute("data-plan-id", String(pro.id || 2));
       }
@@ -948,7 +975,7 @@
       const premiumBtn = document.getElementById("upgrade-btn-premium");
       if (premiumTraffic && premiumPrice && premiumBtn) {
         premiumTraffic.textContent = formatTrafficMonthly(P2.displayGb);
-        formatUpgradeMonthlyPriceEl(premiumPrice, P2.monthly);
+        formatUpgradeWeeklyPriceEl(premiumPrice, P2.weekly);
         renderBillingCycleCards(premiumCycles, P2);
         premiumBtn.setAttribute("data-plan-id", String(premium.id || 3));
       }
@@ -983,111 +1010,44 @@
     }
   }
 
-  window.onRechargeClick = async function (btn) {
-    if (!btn) return;
-    if (btn.disabled) return;
-    const trafficGb = Number(btn.getAttribute("data-traffic-gb"));
-    if (!trafficGb || Number.isNaN(trafficGb)) return;
-
-
-
-    const old = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "处理中…";
-    btn.classList.add("opacity-70", "cursor-not-allowed");
-
-    try {
-      const resp = await fetch(apiPath("/api/plans/recharge"), {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ traffic_gb: trafficGb }),
-      });
-      const body = await resp.json().catch(() => null);
-      if (!resp.ok || !body || !body.success) {
-        showBanner("err", (body && body.message) || "充值失败");
-        return;
+  function applyUserFieldsFromMe(user) {
+    if (!user) return;
+    var planEl = document.getElementById("current-plan");
+    if (planEl) {
+      var cp = user.current_plan;
+      var line = cp && (cp.summary || cp.label);
+      if (line) {
+        planEl.textContent = line;
+        planEl.classList.remove("text-slate-500");
+        planEl.classList.add("text-white");
+      } else {
+        planEl.textContent = "未开通";
+        planEl.classList.add("text-slate-500");
+        planEl.classList.remove("text-white");
       }
-      showBanner("ok", (body && body.message) || "充值成功");
-      hasActivePlan = true;
-      if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
-        profileVlessLink = body.data.subscription_url;
-      }
-      if (body.data && body.data.client_uuid) profileUuid = body.data.client_uuid;
-      applyAccessGate();
-      // 面板更新可能需要一点时间，稍等再刷新实时用量，保证“看起来实时”
-      await sleep(800);
-      await loadXuiStatus();
-    } catch (e) {
-      showBanner("err", "网络异常，充值失败");
-    } finally {
-      btn.disabled = false;
-      btn.textContent = old;
-      btn.classList.remove("opacity-70", "cursor-not-allowed");
     }
-  };
-
-  window.onUpgradeClick = async function (btn) {
-    if (!btn) return;
-    if (btn.disabled) return;
-    const planId = btn.getAttribute("data-plan-id");
-    const pid = Number(planId);
-    if (!pid || Number.isNaN(pid)) {
-      showBanner("err", "未加载到可升级套餐信息，请刷新页面后重试。");
-      return;
+    if (user.uuid) profileUuid = user.uuid;
+    if (user.vless_link) profileVlessLink = user.vless_link;
+    if (typeof user.has_active_plan === "boolean") {
+      hasActivePlan = user.has_active_plan;
+    } else {
+      hasActivePlan = !!user.has_active_plan;
     }
+    applyAccessGate();
+  }
 
-
-    const old = btn.textContent;
-    let upgradeSucceeded = false;
-    btn.disabled = true;
-    btn.textContent = "处理中…";
-    btn.classList.add("opacity-70", "cursor-not-allowed");
-
-    try {
-      const resp = await fetch(apiPath("/api/plans/upgrade"), {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ plan_id: pid }),
-      });
-      const body = await resp.json().catch(() => null);
-      if (!resp.ok || !body || !body.success) {
-        showBanner("err", (body && body.message) || "升级失败");
-        return;
-      }
-      showBanner("ok", (body && body.message) || "升级成功");
-      hasActivePlan = true;
-      if (body.data && body.data.subscription_url && document.getElementById("vless-link")) {
-        profileVlessLink = body.data.subscription_url;
-      }
-      if (body.data && body.data.client_uuid) profileUuid = body.data.client_uuid;
-      applyAccessGate();
-      // 先乐观更新当前套餐状态，避免必须手动刷新才能看到“当前套餐”
-      const selectedCard = btn.closest(".upgrade-card");
-      const trafficEl = selectedCard ? selectedCard.querySelector('[id$="-traffic"]') : null;
-      if (trafficEl && trafficEl.textContent) {
-        const txt = String(trafficEl.textContent).trim().toUpperCase();
-        if (txt.includes("TB")) {
-          const n = Number(txt.replace(/[^0-9.]/g, ""));
-          if (!Number.isNaN(n) && n > 0) currentPlanLimitGb = Number((n * 1000).toFixed(2));
-        } else if (txt.includes("GB")) {
-          const n = Number(txt.replace(/[^0-9.]/g, ""));
-          if (!Number.isNaN(n) && n > 0) currentPlanLimitGb = Number(n.toFixed(2));
-        }
-      }
-      upgradeSucceeded = true;
-      await initRechargeUpgradeCards();
-      await sleep(800);
-      await loadXuiStatus();
-    } catch (e) {
-      showBanner("err", "网络异常，升级失败");
-    } finally {
-      if (!upgradeSucceeded) {
-        btn.disabled = false;
-        btn.textContent = old;
-      }
-      btn.classList.remove("cursor-not-allowed");
-    }
-  };
+  function syncPlanAndAccessFromMe() {
+    fetch(apiPath("/api/auth/me"), { headers: authHeaders(false) })
+      .then(function (resp) {
+        if (!resp.ok) return null;
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || !data.data || !data.data.user) return;
+        applyUserFieldsFromMe(data.data.user);
+      })
+      .catch(function () {});
+  }
 
   async function loadProfile() {
     const resp = await fetch(apiPath("/api/auth/me"), { headers: authHeaders(false) });
@@ -1100,10 +1060,7 @@
     const user = data.data.user;
     document.getElementById("username").textContent = user.username;
     document.getElementById("email").textContent = user.email;
-    profileUuid = user.uuid || "";
-    profileVlessLink = user.vless_link || "";
-    hasActivePlan = !!user.has_active_plan;
-    applyAccessGate();
+    applyUserFieldsFromMe(user);
     await loadNodes(user.current_node_id);
   }
 
@@ -1162,9 +1119,33 @@
   };
 
   loadProfile().then(function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("order_submitted") === "1" || sessionStorage.getItem("checkout_order_submitted") === "1") {
+        sessionStorage.removeItem("checkout_order_submitted");
+        if (params.get("order_submitted") === "1") {
+          var u = new URL(window.location.href);
+          u.searchParams.delete("order_submitted");
+          window.history.replaceState({}, "", u.pathname + (u.search || "") + (u.hash || ""));
+        }
+        showBanner("ok", "订单已提交，正在等待人工审核。审核通过后将同步开通套餐。");
+      } else if (sessionStorage.getItem("checkout_success") === "1") {
+        sessionStorage.removeItem("checkout_success");
+        showBanner("ok", "套餐已开通。请查看下方 UUID 与订阅链接，并可复制使用。");
+        setTimeout(function () {
+          var sec = document.getElementById("vless-section");
+          if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 400);
+      }
+    } catch (e) {}
     loadXuiStatus();
   });
   setInterval(loadXuiStatus, 30000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      syncPlanAndAccessFromMe();
+    }
+  });
 })();
   </script>
 </body>

@@ -2,8 +2,9 @@
 {% macro site_url(name) -%}
 {% if config.AUTH_PAGE_BASE_URL %}
   {{- config.AUTH_PAGE_BASE_URL -}}
-  {%- if name == 'index' -%}/{% elif name == 'login' -%}/login{% elif name == 'dashboard' -%}/dashboard{% elif name == 'admin' -%}/admin{% else -%}/{% endif %}
+  {%- if name == 'index' -%}/{% elif name == 'login' -%}/login{% elif name == 'dashboard' -%}/dashboard{% elif name == 'checkout' -%}/checkout{% elif name == 'recharge' -%}/recharge{% elif name == 'admin' -%}/admin/orders{% elif name == 'admin_orders' -%}/admin/orders{% else -%}/{% endif %}
 {% else %}
-  {%- if name == 'index' -%}{{ url_for('pages.index') }}{% elif name == 'login' -%}{{ url_for('pages.login') }}{% elif name == 'dashboard' -%}{{ url_for('pages.dashboard') }}{% elif name == 'admin' -%}{{ url_for('pages.admin_page') }}{% else -%}{{ url_for('pages.index') }}{% endif %}
+  {# checkout / recharge 用 script_root + 路径，避免个别部署未同步路由时 url_for 抛错 #}
+  {%- if name == 'index' -%}{{ url_for('pages.index') }}{% elif name == 'login' -%}{{ url_for('pages.login') }}{% elif name == 'dashboard' -%}{{ url_for('pages.dashboard') }}{% elif name == 'checkout' -%}{{ (request.script_root or '') ~ '/checkout' }}{% elif name == 'recharge' -%}{{ (request.script_root or '') ~ '/recharge' }}{% elif name == 'admin' -%}{{ url_for('pages.admin_orders_page') }}{% elif name == 'admin_orders' -%}{{ (request.script_root or '') ~ '/admin/orders' }}{% else -%}{{ url_for('pages.index') }}{% endif %}
 {% endif %}
 {%- endmacro %}

@@ -59,3 +59,29 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id ON subscriptions (user_id);
 CREATE INDEX IF NOT EXISTS ix_subscriptions_expires_at ON subscriptions (expires_at);
 CREATE INDEX IF NOT EXISTS ix_plans_is_enabled ON plans (is_enabled);
+
+CREATE TABLE IF NOT EXISTS payment_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  public_order_id VARCHAR(64) NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_email VARCHAR(120) NOT NULL,
+  plan_slug VARCHAR(32) NOT NULL,
+  period_key VARCHAR(32) NOT NULL,
+  plan_label VARCHAR(64) NOT NULL,
+  period_label VARCHAR(64) NOT NULL,
+  amount NUMERIC(12, 2) NOT NULL,
+  alipay_trade_no VARCHAR(128) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'waiting',
+  traffic_gb REAL NOT NULL,
+  duration_days INTEGER NOT NULL,
+  plan_id INTEGER NOT NULL REFERENCES plans(id),
+  client_uuid VARCHAR(64),
+  subscription_url TEXT,
+  created_at DATETIME NOT NULL,
+  completed_at DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS ix_payment_orders_user_id ON payment_orders (user_id);
+CREATE INDEX IF NOT EXISTS ix_payment_orders_status ON payment_orders (status);
+CREATE INDEX IF NOT EXISTS ix_payment_orders_public_order_id ON payment_orders (public_order_id);
+CREATE INDEX IF NOT EXISTS ix_payment_orders_alipay ON payment_orders (alipay_trade_no);

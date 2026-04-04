@@ -1,0 +1,69 @@
+{# 订单列表主卡片 + 底部开通结果区 + Toast #}
+<section class="admin-card mt-6 rounded-2xl border border-white/[0.08] bg-slate-900/40 p-0 shadow-xl shadow-black/20 backdrop-blur-sm">
+  <div class="flex flex-col gap-4 border-b border-white/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-lg font-semibold tracking-tight text-white">支付订单</h2>
+      <p class="mt-1 text-sm text-slate-400">核对支付宝到账后确认收款，系统将写入 3X-UI</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div id="orders-stats" class="hidden flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+        <span><span class="font-medium text-amber-200/90" id="stat-waiting">0</span> 待审</span>
+        <span class="text-slate-600">|</span>
+        <span><span class="font-medium text-emerald-200/90" id="stat-completed">0</span> 已完成</span>
+      </div>
+      <button type="button" id="load-orders" class="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/15">
+        <svg class="h-4 w-4 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+        刷新列表
+      </button>
+    </div>
+  </div>
+  <div class="px-5 pb-2 pt-3">
+    <div id="orders-msg" class="min-h-[1.25rem] text-sm text-slate-400"></div>
+  </div>
+  <div id="orders-wrap" class="hidden px-2 pb-5 sm:px-5">
+    <div class="overflow-x-auto rounded-xl border border-white/[0.06] bg-slate-950/30">
+      <table class="admin-table w-full min-w-[1000px] text-left text-sm">
+        <thead>
+          <tr class="border-b border-white/[0.06] bg-slate-950/80 text-xs font-medium uppercase tracking-wider text-slate-500">
+            <th class="min-w-[160px] px-4 py-3">客户邮箱</th>
+            <th class="whitespace-nowrap px-4 py-3">套餐</th>
+            <th class="whitespace-nowrap px-4 py-3">周期</th>
+            <th class="whitespace-nowrap px-4 py-3">金额</th>
+            <th class="min-w-[140px] px-4 py-3">支付宝订单号</th>
+            <th class="whitespace-nowrap px-4 py-3">状态</th>
+            <th class="whitespace-nowrap px-4 py-3">创建时间</th>
+            <th class="whitespace-nowrap px-4 py-3 text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody id="orders-body" class="divide-y divide-white/[0.04]"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div id="provision-drawer" class="fixed inset-x-0 bottom-0 z-50 hidden translate-y-full transform border-t border-white/10 bg-slate-900/95 p-5 shadow-[0_-8px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-transform duration-300 ease-out" aria-live="polite">
+  <div class="mx-auto flex max-w-4xl flex-col gap-4">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h3 class="text-sm font-semibold text-white">开通结果</h3>
+        <p class="mt-0.5 text-xs text-slate-500">client_uuid 与订阅链接来自本次确认接口</p>
+      </div>
+      <button type="button" id="provision-drawer-close" class="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="关闭">&times;</button>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div class="rounded-xl border border-white/10 bg-slate-950/60 p-3">
+        <div class="text-xs font-medium text-slate-500">Client UUID</div>
+        <div id="drawer-uuid" class="mt-1 break-all font-mono text-xs text-indigo-200">—</div>
+        <button type="button" id="copy-uuid" class="mt-2 text-xs font-medium text-indigo-400 hover:text-indigo-300">复制 UUID</button>
+      </div>
+      <div class="rounded-xl border border-white/10 bg-slate-950/60 p-3">
+        <div class="text-xs font-medium text-slate-500">订阅链接</div>
+        <div id="drawer-url" class="mt-1 max-h-20 overflow-y-auto break-all font-mono text-xs text-emerald-200/90">—</div>
+        <button type="button" id="copy-url" class="mt-2 text-xs font-medium text-emerald-400 hover:text-emerald-300">复制链接</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="provision-drawer-backdrop" class="fixed inset-0 z-40 hidden bg-black/50 backdrop-blur-sm" aria-hidden="true"></div>
+
+<div id="admin-toast" class="pointer-events-none fixed bottom-24 left-1/2 z-[60] hidden -translate-x-1/2 rounded-full border border-white/10 bg-slate-800 px-4 py-2 text-sm text-white shadow-lg" role="status"></div>

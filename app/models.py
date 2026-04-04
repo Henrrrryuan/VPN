@@ -71,3 +71,31 @@ class Subscription(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     plan = db.relationship("Plan", lazy="joined")
+
+
+class PaymentOrder(db.Model):
+    """用户提交支付宝交易号后的待审核订单；管理员「确认收款」后写入 X-UI 并标记 completed。"""
+
+    __tablename__ = "payment_orders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    public_order_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    user_email = db.Column(db.String(120), nullable=False, index=True)
+    plan_slug = db.Column(db.String(32), nullable=False)
+    period_key = db.Column(db.String(32), nullable=False)
+    plan_label = db.Column(db.String(64), nullable=False)
+    period_label = db.Column(db.String(64), nullable=False)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    alipay_trade_no = db.Column(db.String(128), nullable=False, index=True)
+    status = db.Column(db.String(32), nullable=False, default="waiting", index=True)
+    traffic_gb = db.Column(db.Float, nullable=False)
+    duration_days = db.Column(db.Integer, nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey("plans.id"), nullable=False)
+    client_uuid = db.Column(db.String(64), nullable=True)
+    subscription_url = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship("User", lazy="joined")
+    plan = db.relationship("Plan", lazy="joined")

@@ -1,24 +1,121 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy import nulls_last
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import joinedload
 
 from app.extensions import bcrypt, db
-from app.models import Node, Subscription, User, UserNodeAccess
+from app.models import Node, PaymentOrder, Subscription, User, UserNodeAccess
 from app.services.auth_service import generate_access_token
+from app.services.checkout_catalog import (
+    VALID_PERIODS,
+    format_traffic_quota_display,
+    infer_period_key_for_traffic,
+    PERIOD_LABELS,
+    PLAN_NAME_TO_TIER,
+)
 from app.services.xui_client import XUIClient, XUIClientError
 from app.utils.auth_guard import jwt_required
 
 auth_bp = Blueprint("auth", __name__)
 
 
-def _has_active_plan(user: User) -> bool:
-    """后端判定是否有有效套餐（用于前端页面显隐控制）。"""
-    latest = (
+# 库内 Plan.name（Basic/Pro/Premium）→ 结账页展示名（Starter/Standard/Pro）
+_PLAN_DB_TO_DISPLAY = {"Basic": "Starter", "Pro": "Standard", "Premium": "Pro"}
+
+
+def _latest_subscription(user: User) -> Subscription | None:
+    return (
         Subscription.query.filter_by(user_id=user.id)
+        .options(joinedload(Subscription.plan))
         .order_by(Subscription.started_at.desc())
         .first()
     )
+
+
+def _latest_completed_payment_order(user: User) -> PaymentOrder | None:
+    return (
+        PaymentOrder.query.filter_by(user_id=user.id, status="completed")
+        .order_by(nulls_last(PaymentOrder.completed_at.desc()), PaymentOrder.id.desc())
+        .first()
+    )
+
+
+def _current_plan_payload(user: User) -> dict | None:
+    """
+    当前套餐展示：短名 + 周期 + 本周期流量额度。
+    例：Pro · 周付用户(47GB/周)
+    """
+    latest = _latest_subscription(user)
+    po = _latest_completed_payment_order(user)
+    if not latest and not po:
+        return None
+
+    display_label: str | None = None
+    plan_db_name: str | None = None
+    period_key: str | None = None
+    period_label_cn: str | None = None
+    traffic_gb_val: float | None = None
+
+    if latest and latest.plan:
+        plan_db_name = latest.plan.name
+        display_label = _PLAN_DB_TO_DISPLAY.get(plan_db_name, plan_db_name)
+
+    if po:
+        if (po.plan_label or "").strip():
+            display_label = po.plan_label.strip()
+        if po.plan:
+            plan_db_name = po.plan.name
+        period_key = (po.period_key or "").strip().lower() or None
+        if period_key and period_key in VALID_PERIODS:
+            period_label_cn = (po.period_label or "").strip() or PERIOD_LABELS.get(period_key, period_key)
+            traffic_gb_val = float(po.traffic_gb)
+        else:
+            period_key = None
+
+    if latest and latest.plan and (period_key is None or traffic_gb_val is None):
+        tier = PLAN_NAME_TO_TIER.get(latest.plan.name)
+        if tier:
+            if traffic_gb_val is None:
+                traffic_gb_val = float(latest.traffic_limit_gb)
+            if period_key is None:
+                inferred = infer_period_key_for_traffic(tier, float(latest.traffic_limit_gb))
+                if inferred:
+                    period_key = inferred
+                    period_label_cn = PERIOD_LABELS.get(period_key, period_key)
+
+    if not display_label:
+        return None
+
+    exp_iso: str | None = None
+    if latest and latest.expires_at:
+        exp = latest.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        exp_iso = exp.isoformat()
+    elif po and po.completed_at:
+        exp_iso = po.completed_at.isoformat()
+
+    summary = display_label
+    if period_label_cn and period_key and period_key in VALID_PERIODS and traffic_gb_val is not None:
+        quota_disp = format_traffic_quota_display(period_key, traffic_gb_val)
+        summary = f"{display_label} · {period_label_cn}用户({quota_disp})"
+
+    return {
+        "label": display_label,
+        "summary": summary,
+        "plan_db_name": plan_db_name,
+        "period_key": period_key,
+        "period_label": period_label_cn,
+        "traffic_quota_gb": traffic_gb_val,
+        "expires_at": exp_iso,
+    }
+
+
+def _has_active_plan(user: User) -> bool:
+    """后端判定是否有有效套餐（用于前端页面显隐控制）。"""
+    latest = _latest_subscription(user)
     if not latest:
         return False
     now = datetime.now(timezone.utc)
@@ -26,9 +123,9 @@ def _has_active_plan(user: User) -> bool:
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=timezone.utc)
     not_expired = exp > now
-    # 剩余流量>0 视为有效；若未来支持不限流量可在此扩展条件
     has_remaining = float(latest.traffic_remaining_gb or 0) > 0
-    return bool(not_expired and has_remaining)
+    unlimited_cap = float(latest.traffic_limit_gb or 0) <= 0
+    return bool(not_expired and (has_remaining or unlimited_cap))
 
 
 @auth_bp.get("/selftest")
@@ -225,6 +322,7 @@ def me():
                     "vless_link": user.vless_link,
                     "current_node_id": user.current_node_id,
                     "has_active_plan": _has_active_plan(user),
+                    "current_plan": _current_plan_payload(user),
                 }
             },
         }

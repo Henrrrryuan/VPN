@@ -33,6 +33,10 @@ if [[ "${RSYNC_RESTART_SERVICE:-}" == "1" ]]; then
 fi
 
 if [[ "${RSYNC_VERIFY:-1}" != "0" ]]; then
-  echo "==> 远端快速校验（检查 dashboard 是否含「选择套餐」）"
-  ssh "$HOST" "test -f '$DEST/templates/dashboard.html' && grep -q '选择套餐' '$DEST/templates/dashboard.html' && echo OK: dashboard.html 已更新 || { echo FAIL: 远端模板仍是旧版或路径不对; exit 1; }"
+  echo "==> 远端快速校验（dashboard + /recharge 页面与路由）"
+  ssh "$HOST" "set -e; \
+    test -f '$DEST/templates/dashboard.html' && grep -q '选择套餐' '$DEST/templates/dashboard.html'; \
+    test -f '$DEST/templates/recharge.html'; \
+    grep -q 'def recharge_page' '$DEST/app/routes/pages.py'; \
+    echo OK: 模板与 pages.py 含 recharge"
 fi

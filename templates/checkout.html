@@ -1,0 +1,722 @@
+{% from '_site_urls.html' import site_url %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="api-base" content="{{ request.script_root or '' }}" />
+  <title>套餐支付 - VPN SaaS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#6366f1" />
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+    <div class="absolute top-60 right-0 h-[380px] w-[640px] rounded-full bg-fuchsia-500/12 blur-3xl"></div>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-slate-950/60 backdrop-blur-xl">
+    <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-5">
+      <a href="{{ site_url('dashboard') }}" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10">
+        <span aria-hidden="true">←</span> 返回控制台
+      </a>
+      <span class="text-sm font-semibold text-white">套餐支付</span>
+      <button type="button" onclick="logout()" class="rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/15 sm:text-sm">退出</button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-5">
+    <div id="checkout-banner" class="hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+    <section
+      aria-labelledby="checkout-step-plan"
+      class="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20 backdrop-blur-xl sm:p-7"
+    >
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+        <div
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-400/30 bg-indigo-500/15 text-sm font-bold text-indigo-200"
+          aria-hidden="true"
+        >
+          1
+        </div>
+        <div class="min-w-0 flex-1">
+          <h1 id="checkout-step-plan" class="text-lg font-bold text-white">选择套餐</h1>
+          <p class="mt-1 text-sm text-slate-400">仅展示权益说明；应付金额请在下方选择计费周期后，于「确认支付」中查看。</p>
+          <div
+            id="tier-radios"
+            class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-x-2 sm:gap-y-0"
+          ></div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      aria-labelledby="checkout-step-cycle"
+      class="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20 backdrop-blur-xl sm:p-7"
+    >
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+        <div
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-400/30 bg-violet-500/15 text-sm font-bold text-violet-200"
+          aria-hidden="true"
+        >
+          2
+        </div>
+        <div class="min-w-0 flex-1">
+          <h2 id="checkout-step-cycle" class="text-lg font-bold text-white">计费周期</h2>
+          <p class="mt-1 text-sm text-slate-400">选择付费周期后，下侧汇总区会显示应付金额与折算日均。</p>
+          <div id="cycle-radios" class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"></div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      aria-labelledby="checkout-step-pay"
+      class="rounded-[1.5rem] border border-indigo-500/25 bg-indigo-500/[0.08] p-5 shadow-xl shadow-indigo-500/15 backdrop-blur-xl sm:p-6"
+    >
+      <div class="mb-4 flex items-center gap-3 sm:mb-5">
+        <div
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/15 text-sm font-bold text-fuchsia-200"
+          aria-hidden="true"
+        >
+          3
+        </div>
+        <h2 id="checkout-step-pay" class="text-lg font-bold text-white">确认支付</h2>
+      </div>
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div class="text-xs text-slate-400">应付金额</div>
+          <div id="checkout-total" class="mt-1 text-3xl font-extrabold tabular-nums text-white">¥—</div>
+          <p id="checkout-per-day" class="mt-1 text-xs tabular-nums text-slate-500">—</p>
+          <p id="checkout-summary" class="mt-2 text-sm text-slate-400">—</p>
+        </div>
+        <button
+          type="button"
+          id="btn-pay"
+          class="min-w-[200px] rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:opacity-95"
+        >
+          立即支付 <span id="pay-btn-amount" class="tabular-nums">¥—</span>
+        </button>
+      </div>
+      <p class="mt-4 text-xs text-slate-500">
+        扫码并填写支付宝交易号后，订单进入后台待审核；管理员在
+        <code class="rounded bg-white/10 px-1">/admin/orders</code>
+        确认收款后才会开通 X-UI。二维码位于
+        <code class="rounded bg-white/10 px-1">app/static/qr/</code>（
+        <code class="rounded bg-white/10 px-1">/static/qr/</code>）共 15 张。
+      </p>
+    </section>
+  </main>
+
+  <!-- 支付宝扫码支付 MVP -->
+  <div
+    id="alipay-modal-root"
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 ease-out"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="alipay-modal-title"
+    aria-hidden="true"
+  >
+    <button
+      type="button"
+      id="alipay-modal-backdrop"
+      class="absolute inset-0 bg-black/55 backdrop-blur-md transition-opacity duration-200"
+      aria-label="关闭"
+    ></button>
+    <div
+      id="alipay-modal-panel"
+      class="relative z-10 w-full max-w-md scale-95 rounded-2xl border border-white/10 bg-slate-900/92 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl transition duration-200 ease-out sm:p-8"
+    >
+      <h2 id="alipay-modal-title" class="text-center text-lg font-bold text-white">支付宝扫码支付</h2>
+
+      <div class="mt-5 space-y-2 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm">
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">套餐</span>
+          <span id="modal-plan-name" class="font-semibold text-white">—</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">流量</span>
+          <span id="modal-traffic" class="text-slate-200">—</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">周期</span>
+          <span id="modal-cycle" class="text-slate-200">—</span>
+        </div>
+        <div class="flex justify-between gap-3 border-t border-white/10 pt-2">
+          <span class="text-slate-500">金额</span>
+          <span id="modal-amount" class="text-lg font-extrabold tabular-nums text-white">¥—</span>
+        </div>
+      </div>
+
+      <p class="mt-3 text-center text-sm text-slate-300">请使用支付宝扫码支付</p>
+      <p class="mt-1 text-center text-base">
+        应付金额：<span id="modal-amount-highlight" class="font-extrabold tabular-nums text-amber-300">¥—</span>
+      </p>
+
+      <div class="mt-4 flex justify-center">
+        <div class="rounded-2xl bg-white p-3 shadow-lg shadow-black/20">
+          <img
+            id="modal-alipay-qr"
+            src=""
+            width="200"
+            height="200"
+            alt="当前套餐与周期对应的支付宝收款码"
+            class="h-[200px] w-[200px] object-contain"
+          />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label for="modal-trade-no" class="sr-only">支付宝交易号</label>
+        <input
+          id="modal-trade-no"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          placeholder="请输入支付宝交易号（订单号）"
+          class="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-400/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/30"
+        />
+        <p class="mt-2 text-xs leading-relaxed text-slate-500">
+          付款后请在支付宝账单中复制订单号填写，否则无法开通
+        </p>
+      </div>
+
+      <p id="modal-pay-error" class="mt-3 hidden rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-200"></p>
+
+      <p class="mt-3 text-center text-xs text-slate-500">
+        系统订单号：<span id="modal-order-id" class="font-mono text-slate-300">—</span>
+      </p>
+
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row-reverse sm:justify-center">
+        <button
+          type="button"
+          id="btn-modal-paid"
+          class="min-h-[48px] flex-1 rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          我已支付
+        </button>
+        <button
+          type="button"
+          id="btn-modal-cancel"
+          class="min-h-[48px] flex-1 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0 peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/40 border-white/10 hover:border-white/20"
+  ></div>
+
+  <script>
+(function () {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "{{ (site_url('login') | trim) }}";
+    throw new Error("no token");
+  }
+
+  function apiPath(path) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
+  }
+
+  function staticUrl(filename) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    const root = base.replace(/\/?$/, "");
+    return (root || "") + "/static/" + filename.replace(/^\//, "");
+  }
+
+  function authHeaders(json) {
+    const h = { Authorization: "Bearer " + token };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+
+  window.logout = function () {
+    localStorage.removeItem("token");
+    window.location.href = "{{ (site_url('login') | trim) }}";
+  };
+
+  const PRICES = {
+    starter: {
+      weekly: 12,
+      monthly: 29,
+      quarter: 79,
+      half: 149,
+      year: 279,
+      label: "Starter",
+      traffic: "80GB/月",
+      weeklyTraffic: "18GB/周",
+      apiName: "Basic",
+      features: ["支持2台设备同时在线", "标准网络质量", "稳定性：⭐⭐", "流媒体解锁", "支持ChatGPT"],
+    },
+    standard: {
+      weekly: 19,
+      monthly: 49,
+      quarter: 129,
+      half: 249,
+      year: 469,
+      label: "Standard",
+      traffic: "150GB/月",
+      weeklyTraffic: "35GB/周",
+      apiName: "Pro",
+      features: ["支持3台设备", "高速网络", "稳定性：⭐⭐⭐", "流媒体解锁"],
+    },
+    pro: {
+      weekly: 25,
+      monthly: 69,
+      quarter: 179,
+      half: 349,
+      year: 669,
+      label: "Pro",
+      traffic: "200GB/月",
+      weeklyTraffic: "47GB/周",
+      apiName: "Premium",
+      features: ["高额月流量", "支持5台设备", "专属高速线路", "稳定性：⭐⭐⭐⭐", "流媒体解锁", "优先级连接"],
+    },
+  };
+
+  const CYCLES = [
+    { id: "week", key: "weekly", title: "周付", hint: "" },
+    { id: "month", key: "monthly", title: "月付", hint: "" },
+    { id: "quarter", key: "quarterly", title: "季付", hint: "-10%" },
+    { id: "half", key: "half", title: "半年", hint: "-15%" },
+    { id: "year", key: "yearly", title: "年付", hint: "-20%" },
+  ];
+
+  const TIER_ORDER = ["starter", "standard", "pro"];
+
+  const CYCLE_DAYS = { week: 7, month: 30, quarter: 90, half: 183, year: 365 };
+
+  function formatPerDayYuan(amount, days) {
+    if (!days || amount <= 0) return "0";
+    var v = amount / days;
+    var t = v.toFixed(2);
+    if (t.endsWith("0")) t = t.slice(0, -1);
+    if (t.endsWith("0")) t = t.slice(0, -1);
+    if (t.endsWith(".")) t = t.slice(0, -1);
+    return t;
+  }
+
+  function parseTierQuery(q) {
+    if (!q) return "starter";
+    const s = String(q).trim().toLowerCase();
+    if (s === "basic" || s === "starter" || s === "s") return "starter";
+    if (s === "standard" || s === "middle") return "standard";
+    if (s === "premium" || s === "pro" || s === "p") return "pro";
+    return "starter";
+  }
+
+  let selectedTier = parseTierQuery(new URLSearchParams(window.location.search).get("plan"));
+  let selectedCycle = "month";
+  let planIds = { starter: null, standard: null, pro: null };
+
+  /** 与 React MVP 等价：弹窗可见性、本地订单、支付中 loading */
+  let showModal = false;
+  let order = null;
+  let isPaying = false;
+  let pendingOrderId = "";
+
+  const MOCK_ORDER_KEY = "checkout_mock_order";
+
+  function saveMockOrder() {
+    if (!order) return;
+    try {
+      sessionStorage.setItem(MOCK_ORDER_KEY, JSON.stringify(order));
+    } catch (e) {}
+  }
+
+  function setModalOpen(open) {
+    showModal = open;
+    const root = document.getElementById("alipay-modal-root");
+    const panel = document.getElementById("alipay-modal-panel");
+    if (!root || !panel) return;
+    if (open) {
+      root.classList.remove("opacity-0", "pointer-events-none");
+      root.setAttribute("aria-hidden", "false");
+      document.body.classList.add("overflow-hidden");
+      requestAnimationFrame(function () {
+        panel.classList.remove("scale-95");
+        panel.classList.add("scale-100");
+      });
+    } else {
+      root.classList.add("opacity-0", "pointer-events-none");
+      root.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("overflow-hidden");
+      panel.classList.remove("scale-100");
+      panel.classList.add("scale-95");
+    }
+  }
+
+  function buildOrderId() {
+    return "ORD" + Date.now();
+  }
+
+  /** 使用 /static/qr/…（与 app/static/qr 一致）；勿在浏览器里使用本机绝对路径 file:///Users/... */
+  function qrUrlForSelection() {
+    return staticUrl("qr/" + selectedTier + "_" + selectedCycle + ".png");
+  }
+
+  function clearModalPayError() {
+    const el = document.getElementById("modal-pay-error");
+    if (!el) return;
+    el.textContent = "";
+    el.classList.add("hidden");
+  }
+
+  function showModalPayError(msg) {
+    const el = document.getElementById("modal-pay-error");
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+
+  function openAlipayModal() {
+    const p = PRICES[selectedTier];
+    const c = CYCLES.find(function (x) {
+      return x.id === selectedCycle;
+    });
+    if (!p || !c) return;
+    const price = currentAmount();
+    clearModalPayError();
+    order = null;
+    try {
+      sessionStorage.removeItem(MOCK_ORDER_KEY);
+    } catch (e) {}
+
+    pendingOrderId = buildOrderId();
+    const tradeInput = document.getElementById("modal-trade-no");
+    if (tradeInput) {
+      tradeInput.value = "";
+      tradeInput.disabled = false;
+    }
+
+    document.getElementById("modal-plan-name").textContent = p.label;
+    document.getElementById("modal-traffic").textContent = p.traffic || "—";
+    document.getElementById("modal-cycle").textContent = c.title + (c.hint ? " " + c.hint : "");
+    document.getElementById("modal-amount").textContent = "¥" + price;
+    document.getElementById("modal-amount-highlight").textContent = "¥" + price;
+    document.getElementById("modal-order-id").textContent = pendingOrderId;
+    const qr = document.getElementById("modal-alipay-qr");
+    if (qr) qr.src = qrUrlForSelection() + "?t=" + Date.now();
+
+    isPaying = false;
+    const paidBtn = document.getElementById("btn-modal-paid");
+    const cancelBtn = document.getElementById("btn-modal-cancel");
+    if (paidBtn) {
+      paidBtn.disabled = false;
+      paidBtn.textContent = "我已支付";
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+
+    setModalOpen(true);
+  }
+
+  function closeAlipayModal() {
+    if (isPaying) return;
+    const tradeInput = document.getElementById("modal-trade-no");
+    if (tradeInput) {
+      tradeInput.value = "";
+      tradeInput.disabled = false;
+    }
+    clearModalPayError();
+    setModalOpen(false);
+  }
+
+  function tierKeyToPriceKey(cycleId) {
+    const row = CYCLES.find(function (c) {
+      return c.id === cycleId;
+    });
+    if (!row) return "monthly";
+    if (row.key === "weekly") return "weekly";
+    if (row.key === "monthly") return "monthly";
+    if (row.key === "quarterly") return "quarter";
+    if (row.key === "half") return "half";
+    return "year";
+  }
+
+  function currentAmount() {
+    const p = PRICES[selectedTier];
+    const pk = tierKeyToPriceKey(selectedCycle);
+    return p ? p[pk] : 0;
+  }
+
+  function syncPlanIdsFromApi(plans) {
+    plans.forEach(function (p) {
+      if (p.name === "Basic") planIds.starter = p.id;
+      if (p.name === "Pro") planIds.standard = p.id;
+      if (p.name === "Premium") planIds.pro = p.id;
+    });
+  }
+
+  function renderTierRadios() {
+    const host = document.getElementById("tier-radios");
+    if (!host) return;
+    const cardCls =
+      "rounded-2xl border border-white/10 bg-slate-950/45 p-4 shadow-inner shadow-black/20 backdrop-blur-md transition peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/50 peer-checked:bg-indigo-500/[0.07] hover:border-white/20";
+    host.innerHTML = TIER_ORDER.map(function (tid) {
+      const m = PRICES[tid];
+      const rec = tid === "standard";
+      const checked = selectedTier === tid ? "checked" : "";
+      const feats = (m.features || [])
+        .map(function (line) {
+          return (
+            '<li class="flex gap-2 text-[11px] leading-snug text-slate-400">' +
+            '<span class="mt-0.5 shrink-0 text-emerald-400/85" aria-hidden="true">✓</span>' +
+            "<span>" +
+            line +
+            "</span></li>"
+          );
+        })
+        .join("");
+      return (
+        '<label class="relative flex h-full min-h-0 w-full min-w-0 cursor-pointer">' +
+        '<input type="radio" class="peer sr-only" name="checkout-tier" value="' +
+        tid +
+        '" ' +
+        checked +
+        ' />' +
+        '<div class="' +
+        cardCls +
+        ' flex h-full w-full min-w-0 flex-col">' +
+        (rec
+          ? '<span class="absolute right-3 top-3 z-[1] rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">推荐</span>'
+          : "") +
+        '<div class="pr-14">' +
+        '<div class="text-base font-bold tracking-tight text-white">' +
+        m.label +
+        "</div></div>" +
+        '<ul class="mt-3 flex-1 space-y-1.5">' +
+        feats +
+        "</ul>" +
+        "</div></label>"
+      );
+    }).join("");
+
+    host.querySelectorAll('input[name="checkout-tier"]').forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        if (inp.checked) {
+          selectedTier = inp.value;
+          updateTotals();
+        }
+      });
+    });
+  }
+
+  function renderCycleRadios() {
+    const host = document.getElementById("cycle-radios");
+    if (!host) return;
+    const cardCls =
+      "rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-3 text-center backdrop-blur-sm transition peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/40 hover:border-white/20";
+    host.innerHTML = CYCLES.map(function (c) {
+      const checked = selectedCycle === c.id ? "checked" : "";
+      const hint = c.hint
+        ? '<span class="text-[10px] text-slate-500">(' + c.hint + ")</span>"
+        : "";
+      return (
+        '<label class="block cursor-pointer">' +
+        '<input type="radio" class="peer sr-only" name="checkout-cycle" value="' +
+        c.id +
+        '" ' +
+        checked +
+        ' />' +
+        '<div class="' +
+        cardCls +
+        '">' +
+        '<div class="text-sm font-semibold text-white">' +
+        c.title +
+        " " +
+        hint +
+        "</div>" +
+        "</div></label>"
+      );
+    }).join("");
+
+    host.querySelectorAll('input[name="checkout-cycle"]').forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        if (inp.checked) {
+          selectedCycle = inp.value;
+          updateTotals();
+        }
+      });
+    });
+  }
+
+  function updateTotals() {
+    const amt = currentAmount();
+    const p = PRICES[selectedTier];
+    const c = CYCLES.find(function (x) {
+      return x.id === selectedCycle;
+    });
+    const tot = document.getElementById("checkout-total");
+    const payAmt = document.getElementById("pay-btn-amount");
+    const sum = document.getElementById("checkout-summary");
+    const perDayEl = document.getElementById("checkout-per-day");
+    const label = "¥" + amt;
+    if (tot) tot.textContent = label;
+    if (payAmt) payAmt.textContent = label;
+    if (sum && p && c) {
+      var line = p.label + " · " + c.title + (c.hint ? " " + c.hint : "");
+      if (selectedCycle === "week" && p.weeklyTraffic) {
+        line += " · " + p.weeklyTraffic;
+      }
+      sum.textContent = line;
+    }
+    if (perDayEl && c) {
+      var days = CYCLE_DAYS[selectedCycle] || 30;
+      perDayEl.textContent =
+        "≈ ¥" + formatPerDayYuan(amt, days) + " / 天（按" + c.title + "折算）";
+    }
+  }
+
+  function showBanner(kind, msg) {
+    const b = document.getElementById("checkout-banner");
+    if (!b) return;
+    b.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    if (kind === "err") {
+      b.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
+    } else {
+      b.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
+    }
+    b.textContent = msg;
+    b.classList.remove("hidden");
+  }
+
+  async function submitCheckoutOrder() {
+    if (!order) throw new Error("订单数据缺失");
+    const resp = await fetch(apiPath("/api/plans/checkout-order"), {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({
+        order_id: order.orderId,
+        tier: order.plan,
+        period: order.period,
+        trade_no: order.tradeNo,
+        amount: order.price,
+      }),
+    });
+    const body = await resp.json().catch(function () {
+      return null;
+    });
+    if (!resp.ok || !body || !body.success) {
+      throw new Error((body && body.message) || "提交失败");
+    }
+    try {
+      sessionStorage.setItem("checkout_order_submitted", "1");
+    } catch (e) {}
+    order.status = "waiting";
+    saveMockOrder();
+    var dash = "{{ (site_url('dashboard') | trim) }}";
+    window.location.href = dash + (dash.indexOf("?") >= 0 ? "&" : "?") + "order_submitted=1";
+  }
+
+  document.getElementById("btn-pay").addEventListener("click", function () {
+    const pid = planIds[selectedTier];
+    if (pid == null || Number.isNaN(Number(pid))) {
+      showBanner("err", "未加载到套餐 ID，请刷新页面后重试。");
+      return;
+    }
+    openAlipayModal();
+  });
+
+  document.getElementById("btn-modal-cancel").addEventListener("click", closeAlipayModal);
+  document.getElementById("alipay-modal-backdrop").addEventListener("click", closeAlipayModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && showModal) closeAlipayModal();
+  });
+
+  document.getElementById("btn-modal-paid").addEventListener("click", async function () {
+    if (isPaying) return;
+    clearModalPayError();
+
+    const tradeInput = document.getElementById("modal-trade-no");
+    const tradeRaw = tradeInput ? tradeInput.value : "";
+    const tradeNo = String(tradeRaw || "").trim();
+    if (!tradeNo) {
+      showModalPayError("请填写支付宝订单号");
+      return;
+    }
+
+    const pid = planIds[selectedTier];
+    if (pid == null || Number.isNaN(Number(pid))) {
+      showModalPayError("未加载到套餐 ID，请刷新页面后重试。");
+      return;
+    }
+
+    const p = PRICES[selectedTier];
+    const c = CYCLES.find(function (x) {
+      return x.id === selectedCycle;
+    });
+    if (!p || !c) return;
+
+    const price = currentAmount();
+    order = {
+      orderId: pendingOrderId || buildOrderId(),
+      plan: selectedTier,
+      period: c.key,
+      price: price,
+      tradeNo: tradeNo,
+      status: "waiting_confirm",
+      planLabel: p.label,
+      cycleTitle: c.title + (c.hint ? " " + c.hint : ""),
+    };
+    saveMockOrder();
+
+    isPaying = true;
+    const paidBtn = document.getElementById("btn-modal-paid");
+    const cancelBtn = document.getElementById("btn-modal-cancel");
+    if (tradeInput) tradeInput.disabled = true;
+    if (paidBtn) {
+      paidBtn.disabled = true;
+      paidBtn.textContent = "等待确认（通常1-5分钟）";
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    try {
+      await new Promise(function (r) {
+        setTimeout(r, 1200);
+      });
+      await submitCheckoutOrder();
+    } catch (err) {
+      isPaying = false;
+      order = null;
+      try {
+        sessionStorage.removeItem(MOCK_ORDER_KEY);
+      } catch (e2) {}
+      if (tradeInput) tradeInput.disabled = false;
+      if (paidBtn) {
+        paidBtn.disabled = false;
+        paidBtn.textContent = "我已支付";
+      }
+      if (cancelBtn) cancelBtn.disabled = false;
+      showModalPayError(err.message || "网络异常，请稍后重试");
+    }
+  });
+
+  fetch(apiPath("/api/plans"), { headers: authHeaders(false) })
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (body) {
+      const plans = (body && body.data && body.data.plans) || [];
+      syncPlanIdsFromApi(plans);
+    })
+    .catch(function () {
+      showBanner("err", "无法加载套餐列表，可刷新重试；金额仍按页面价表计算。");
+    })
+    .finally(function () {
+      renderTierRadios();
+      renderCycleRadios();
+      updateTotals();
+    });
+})();
+  </script>
+</body>
+</html>
