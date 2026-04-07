@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from app.extensions import bcrypt, db
 from app.models import Node, PaymentOrder, Subscription, User, UserNodeAccess
 from app.services.auth_service import generate_access_token
+from app.services.login_rate_limit import is_login_rate_limited
 from app.services.checkout_catalog import (
     VALID_PERIODS,
     format_traffic_quota_display,
@@ -20,6 +21,10 @@ from app.utils.auth_guard import jwt_required
 
 auth_bp = Blueprint("auth", __name__)
 
+# 固定 bcrypt 串，仅用于「用户不存在」分支对齐校验耗时（明文无关）
+_LOGIN_TIMING_DUMMY_HASH = (
+    "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIY5p7g7Vy"
+)
 
 # 库内 Plan.name（Basic/Pro/Premium）→ 结账页展示名（Starter/Standard/Pro）
 _PLAN_DB_TO_DISPLAY = {"Basic": "Starter", "Pro": "Standard", "Premium": "Pro"}
@@ -264,21 +269,31 @@ def register():
 
 @auth_bp.post("/login")
 def login():
+    def _fail(http_code: int, code: str, message: str):
+        return jsonify({"success": False, "code": code, "message": message}), http_code
+
     try:
+        if is_login_rate_limited(request.remote_addr or ""):
+            return _fail(429, "LOGIN_RATE_LIMITED", "请求过于频繁，请稍后再试")
+
         data = request.get_json(silent=True) or {}
         identity = (data.get("identity") or "").strip()
         password = data.get("password") or ""
         if not identity or not password:
-            return jsonify({"success": False, "message": "请输入用户名/邮箱与密码"}), 400
+            return _fail(400, "LOGIN_MISSING_FIELDS", "请输入用户名/邮箱与密码")
 
         user = User.query.filter(
             (User.username == identity) | (User.email == identity.lower())
         ).first()
         if not user:
-            return jsonify({"success": False, "message": "用户名或密码错误"}), 401
+            bcrypt.check_password_hash(_LOGIN_TIMING_DUMMY_HASH, password)
+            return _fail(401, "LOGIN_INVALID_CREDENTIALS", "用户名或密码错误")
 
         if not bcrypt.check_password_hash(user.password_hash, password):
-            return jsonify({"success": False, "message": "用户名或密码错误"}), 401
+            return _fail(401, "LOGIN_INVALID_CREDENTIALS", "用户名或密码错误")
+
+        if bool(getattr(user, "is_disabled", False)):
+            return _fail(403, "ACCOUNT_DISABLED", "账号已停用，请联系管理员")
 
         token = generate_access_token(user.id)
         return jsonify(
@@ -298,12 +313,12 @@ def login():
                 },
             }
         )
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         current_app.logger.exception("login database error")
-        return jsonify({"success": False, "message": f"数据库错误：{exc}"}), 500
-    except Exception as exc:
+        return _fail(500, "SERVER_ERROR", "服务暂时不可用，请稍后再试")
+    except Exception:
         current_app.logger.exception("login failed")
-        return jsonify({"success": False, "message": str(exc)}), 500
+        return _fail(500, "SERVER_ERROR", "服务暂时不可用，请稍后再试")
 
 
 @auth_bp.get("/me")

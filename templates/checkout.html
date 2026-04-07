@@ -41,7 +41,6 @@
         </div>
         <div class="min-w-0 flex-1">
           <h1 id="checkout-step-plan" class="text-lg font-bold text-white">选择套餐</h1>
-          <p class="mt-1 text-sm text-slate-400">仅展示权益说明；应付金额请在下方选择计费周期后，于「确认支付」中查看。</p>
           <div
             id="tier-radios"
             class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-x-2 sm:gap-y-0"
@@ -63,7 +62,6 @@
         </div>
         <div class="min-w-0 flex-1">
           <h2 id="checkout-step-cycle" class="text-lg font-bold text-white">计费周期</h2>
-          <p class="mt-1 text-sm text-slate-400">选择付费周期后，下侧汇总区会显示应付金额与折算日均。</p>
           <div id="cycle-radios" class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"></div>
         </div>
       </div>
@@ -97,13 +95,6 @@
           立即支付 <span id="pay-btn-amount" class="tabular-nums">¥—</span>
         </button>
       </div>
-      <p class="mt-4 text-xs text-slate-500">
-        扫码并填写支付宝交易号后，订单进入后台待审核；管理员在
-        <code class="rounded bg-white/10 px-1">/admin/orders</code>
-        确认收款后才会开通 X-UI。二维码位于
-        <code class="rounded bg-white/10 px-1">app/static/qr/</code>（
-        <code class="rounded bg-white/10 px-1">/static/qr/</code>）共 15 张。
-      </p>
     </section>
   </main>
 
@@ -147,10 +138,7 @@
         </div>
       </div>
 
-      <p class="mt-3 text-center text-sm text-slate-300">请使用支付宝扫码支付</p>
-      <p class="mt-1 text-center text-base">
-        应付金额：<span id="modal-amount-highlight" class="font-extrabold tabular-nums text-amber-300">¥—</span>
-      </p>
+      <p class="mt-3 text-center text-sm text-slate-300">长按二维码或使用支付宝扫码支付</p>
 
       <div class="mt-4 flex justify-center">
         <div class="rounded-2xl bg-white p-3 shadow-lg shadow-black/20">
@@ -166,25 +154,23 @@
       </div>
 
       <div class="mt-4">
-        <label for="modal-trade-no" class="sr-only">支付宝交易号</label>
+        <label for="modal-trade-no" class="sr-only">支付宝订单号</label>
         <input
           id="modal-trade-no"
           type="text"
-          inputmode="text"
+          inputmode="numeric"
+          maxlength="28"
+          pattern="[0-9]{16,28}"
           autocomplete="off"
-          placeholder="请输入支付宝交易号（订单号）"
+          placeholder="请输入支付宝付款订单号(16～28位纯数字)"
           class="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-400/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/30"
         />
         <p class="mt-2 text-xs leading-relaxed text-slate-500">
-          付款后请在支付宝账单中复制订单号填写，否则无法开通
+          付款后在支付宝账单中复制<strong class="text-slate-400">订单号</strong>，填错无法核对到账
         </p>
       </div>
 
       <p id="modal-pay-error" class="mt-3 hidden rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-200"></p>
-
-      <p class="mt-3 text-center text-xs text-slate-500">
-        系统订单号：<span id="modal-order-id" class="font-mono text-slate-300">—</span>
-      </p>
 
       <div class="mt-6 flex flex-col gap-3 sm:flex-row-reverse sm:justify-center">
         <button
@@ -251,8 +237,8 @@
       half: 149,
       year: 279,
       label: "Starter",
-      traffic: "80GB/月",
-      weeklyTraffic: "18GB/周",
+      monthlyGb: 80,
+      weeklyGb: 18,
       apiName: "Basic",
       features: ["支持2台设备同时在线", "标准网络质量", "稳定性：⭐⭐", "流媒体解锁", "支持ChatGPT"],
     },
@@ -263,8 +249,8 @@
       half: 249,
       year: 469,
       label: "Standard",
-      traffic: "150GB/月",
-      weeklyTraffic: "35GB/周",
+      monthlyGb: 150,
+      weeklyGb: 35,
       apiName: "Pro",
       features: ["支持3台设备", "高速网络", "稳定性：⭐⭐⭐", "流媒体解锁"],
     },
@@ -275,8 +261,8 @@
       half: 349,
       year: 669,
       label: "Pro",
-      traffic: "200GB/月",
-      weeklyTraffic: "47GB/周",
+      monthlyGb: 200,
+      weeklyGb: 47,
       apiName: "Premium",
       features: ["高额月流量", "支持5台设备", "专属高速线路", "稳定性：⭐⭐⭐⭐", "流媒体解锁", "优先级连接"],
     },
@@ -293,6 +279,39 @@
   const TIER_ORDER = ["starter", "standard", "pro"];
 
   const CYCLE_DAYS = { week: 7, month: 30, quarter: 90, half: 183, year: 365 };
+
+  /** 与后端 checkout_catalog.resolve_traffic_and_duration 一致：非周付 = monthlyGb * (days/30)，四舍五入两位 */
+  const TRAFFIC_SUFFIX_BY_CYCLE = {
+    week: "/周",
+    month: "/月",
+    quarter: "/季",
+    half: "/半年",
+    year: "/年",
+  };
+
+  function formatGbDisplay(gb) {
+    var x = Number(gb);
+    if (!isFinite(x)) return "0";
+    if (Math.abs(x - Math.round(x)) < 1e-6) return String(Math.round(x));
+    var t = x.toFixed(2);
+    if (t.endsWith("0")) t = t.slice(0, -1);
+    if (t.endsWith("0")) t = t.slice(0, -1);
+    if (t.endsWith(".")) t = t.slice(0, -1);
+    return t;
+  }
+
+  function trafficQuotaForSelection(tierKey, cycleId) {
+    var p = PRICES[tierKey];
+    if (!p) return "";
+    var suf = TRAFFIC_SUFFIX_BY_CYCLE[cycleId];
+    var days = CYCLE_DAYS[cycleId];
+    if (!suf || !days) return "";
+    if (cycleId === "week") {
+      return formatGbDisplay(p.weeklyGb) + "GB" + suf;
+    }
+    var gb = Math.round(p.monthlyGb * (days / 30) * 100) / 100;
+    return formatGbDisplay(gb) + "GB" + suf;
+  }
 
   function formatPerDayYuan(amount, days) {
     if (!days || amount <= 0) return "0";
@@ -321,9 +340,20 @@
   let showModal = false;
   let order = null;
   let isPaying = false;
-  let pendingOrderId = "";
 
   const MOCK_ORDER_KEY = "checkout_mock_order";
+  const TRADE_NO_RE = /^\d{16,28}$/;
+
+  function normalizeTradeNoInput(raw) {
+    return String(raw || "").replace(/\s+/g, "").trim();
+  }
+
+  function validateTradeNo(s) {
+    var t = normalizeTradeNoInput(s);
+    if (!t) return "请填写支付宝订单号";
+    if (!TRADE_NO_RE.test(t)) return "支付宝订单号须为 16～28 位纯数字";
+    return "";
+  }
 
   function saveMockOrder() {
     if (!order) return;
@@ -352,10 +382,6 @@
       panel.classList.remove("scale-100");
       panel.classList.add("scale-95");
     }
-  }
-
-  function buildOrderId() {
-    return "ORD" + Date.now();
   }
 
   /** 使用 /static/qr/…（与 app/static/qr 一致）；勿在浏览器里使用本机绝对路径 file:///Users/... */
@@ -390,7 +416,6 @@
       sessionStorage.removeItem(MOCK_ORDER_KEY);
     } catch (e) {}
 
-    pendingOrderId = buildOrderId();
     const tradeInput = document.getElementById("modal-trade-no");
     if (tradeInput) {
       tradeInput.value = "";
@@ -398,11 +423,9 @@
     }
 
     document.getElementById("modal-plan-name").textContent = p.label;
-    document.getElementById("modal-traffic").textContent = p.traffic || "—";
+    document.getElementById("modal-traffic").textContent = trafficQuotaForSelection(selectedTier, selectedCycle) || "—";
     document.getElementById("modal-cycle").textContent = c.title + (c.hint ? " " + c.hint : "");
     document.getElementById("modal-amount").textContent = "¥" + price;
-    document.getElementById("modal-amount-highlight").textContent = "¥" + price;
-    document.getElementById("modal-order-id").textContent = pendingOrderId;
     const qr = document.getElementById("modal-alipay-qr");
     if (qr) qr.src = qrUrlForSelection() + "?t=" + Date.now();
 
@@ -563,9 +586,8 @@
     if (payAmt) payAmt.textContent = label;
     if (sum && p && c) {
       var line = p.label + " · " + c.title + (c.hint ? " " + c.hint : "");
-      if (selectedCycle === "week" && p.weeklyTraffic) {
-        line += " · " + p.weeklyTraffic;
-      }
+      var tq = trafficQuotaForSelection(selectedTier, selectedCycle);
+      if (tq) line += " · " + tq;
       sum.textContent = line;
     }
     if (perDayEl && c) {
@@ -594,7 +616,6 @@
       method: "POST",
       headers: authHeaders(true),
       body: JSON.stringify({
-        order_id: order.orderId,
         tier: order.plan,
         period: order.period,
         trade_no: order.tradeNo,
@@ -637,10 +658,10 @@
     clearModalPayError();
 
     const tradeInput = document.getElementById("modal-trade-no");
-    const tradeRaw = tradeInput ? tradeInput.value : "";
-    const tradeNo = String(tradeRaw || "").trim();
-    if (!tradeNo) {
-      showModalPayError("请填写支付宝订单号");
+    const tradeNo = normalizeTradeNoInput(tradeInput ? tradeInput.value : "");
+    var tradeErr = validateTradeNo(tradeNo);
+    if (tradeErr) {
+      showModalPayError(tradeErr);
       return;
     }
 
@@ -658,7 +679,6 @@
 
     const price = currentAmount();
     order = {
-      orderId: pendingOrderId || buildOrderId(),
       plan: selectedTier,
       period: c.key,
       price: price,

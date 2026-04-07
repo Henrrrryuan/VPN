@@ -1,6 +1,9 @@
-import os
+from pathlib import Path
 
 from dotenv import load_dotenv
+
+# 项目根目录（含 .env），与进程 cwd 无关；避免从家目录等上级路径先命中别的 .env 导致 ADMIN_TOKEN 未加载
+_APP_ROOT = Path(__file__).resolve().parent.parent
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
@@ -55,6 +58,8 @@ def _register_api_error_handlers(app: Flask) -> None:
 
 
 def create_app() -> Flask:
+    # 先加载仓库根目录 .env，再允许从 cwd 向上查找（默认不覆盖已存在的键）
+    load_dotenv(_APP_ROOT / ".env")
     load_dotenv()
     # 注意：必须在 load_dotenv() 之后再导入 Config，确保能读取到 .env 中的环境变量
     from app.config import Config
@@ -77,6 +82,12 @@ def create_app() -> Flask:
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(pages_bp)
     _register_api_error_handlers(app)
+
+    if not (app.config.get("ADMIN_TOKEN") or "").strip():
+        app.logger.warning(
+            "ADMIN_TOKEN 未设置：GET /api/admin/orders 将固定返回 403，"
+            "请在项目根 .env 中设置 ADMIN_TOKEN 并重启进程（勿只改 .env.example）。"
+        )
 
     with app.app_context():
         ensure_schema_compatibility()

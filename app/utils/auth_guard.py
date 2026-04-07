@@ -27,6 +27,15 @@ def jwt_required(handler):
         if not user:
             return jsonify({"success": False, "message": "用户不存在或已被删除"}), 401
 
+        if bool(getattr(user, "is_disabled", False)):
+            return jsonify(
+                {
+                    "success": False,
+                    "code": "ACCOUNT_DISABLED",
+                    "message": "账号已停用，请重新登录",
+                }
+            ), 403
+
         g.current_user = user
         return handler(*args, **kwargs)
 

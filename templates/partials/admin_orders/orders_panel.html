@@ -38,6 +38,25 @@
         <tbody id="orders-body" class="divide-y divide-white/[0.04]"></tbody>
       </table>
     </div>
+    <div id="orders-pagination" class="hidden flex flex-col gap-3 border-t border-white/[0.06] px-2 pb-2 pt-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
+      <p id="orders-page-info" class="text-sm text-slate-400"></p>
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          id="orders-prev-page"
+          class="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          上一页
+        </button>
+        <button
+          type="button"
+          id="orders-next-page"
+          class="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          下一页
+        </button>
+      </div>
+    </div>
   </div>
 </section>
 

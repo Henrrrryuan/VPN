@@ -12,6 +12,13 @@ class XUIClientError(Exception):
     pass
 
 
+# 3x-ui web/controller/api.go：未登录访问 /panel/api 时故意返回 404，易被误判为「路径错误」
+_XUI_API_UNAUTH_404_HINT = (
+    "（3x-ui 对未登录会话的 /panel/api 会返回 HTTP 404；若密码错误，请先根据「x-ui 登录失败」提示修正 "
+    "XUI_USERNAME / XUI_PASSWORD。另请确认 XUI_BASE_URL 与 XUI_WEB_BASE_PATH 与浏览器打开面板时的地址一致。）"
+)
+
+
 def _env_str_or(key: str, fallback: str) -> str:
     """若进程环境中有该键且非空，用环境值；否则用 fallback（避免只改 .env 未同步 nodes 表）。"""
     raw = os.environ.get(key)
@@ -100,6 +107,24 @@ class XUIClient:
             raise XUIClientError(f"x-ui login request failed: {exc}") from exc
         if response.status_code != 200:
             raise XUIClientError(f"x-ui login failed with status {response.status_code}")
+        # 3x-ui 登录失败仍常返回 HTTP 200 + JSON success:false（见 IndexController.login / pureJsonMsg）
+        ct = (response.headers.get("Content-Type") or "").lower()
+        if "application/json" not in ct:
+            return
+        try:
+            data = response.json()
+        except ValueError:
+            raise XUIClientError(
+                "x-ui login 响应不是合法 JSON，请确认 base_url 指向 3x-ui 面板根地址（须含「Web 基础路径」）"
+            ) from None
+        if not isinstance(data, dict):
+            return
+        if data.get("success") is False:
+            msg = str(data.get("msg") or "").strip() or "凭据被拒绝"
+            raise XUIClientError(
+                f"x-ui 登录失败：{msg}（请核对节点或 .env 中的 XUI_USERNAME / XUI_PASSWORD；"
+                "若面板启用了两步验证，请关闭或为自动化使用独立账号）"
+            )
 
     def _traffics_url(self, email: str) -> str:
         safe = quote(str(email), safe="")
@@ -369,7 +394,8 @@ class XUIClient:
         except requests.RequestException as exc:
             raise XUIClientError(f"x-ui addClient request failed: {exc}") from exc
         if response.status_code != 200:
-            raise XUIClientError(f"x-ui addClient failed with status {response.status_code}")
+            extra = _XUI_API_UNAUTH_404_HINT if response.status_code == 404 else ""
+            raise XUIClientError(f"x-ui addClient failed with status {response.status_code}{extra}")
 
         result = response.json()
         if not result.get("success"):
@@ -408,7 +434,8 @@ class XUIClient:
         except requests.RequestException as exc:
             raise XUIClientError(f"x-ui updateClient request failed: {exc}") from exc
         if response.status_code != 200:
-            raise XUIClientError(f"x-ui updateClient failed with status {response.status_code}")
+            extra = _XUI_API_UNAUTH_404_HINT if response.status_code == 404 else ""
+            raise XUIClientError(f"x-ui updateClient failed with status {response.status_code}{extra}")
 
         result = response.json()
         if not result.get("success"):

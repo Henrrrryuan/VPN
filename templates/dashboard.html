@@ -284,12 +284,9 @@
   let currentPlanLimitGb = null;
   let bannerTimer = null;
   let expiryCountdownTimer = null;
-  /** none | unlimited | live（面板在线，每分钟递减） | paused（面板离线，冻结剩余） */
+  /** none | unlimited | live（绝对到期时间戳，随真实时间递减，与是否连着 VPN 无关） */
   let expiryMode = "none";
   let expiryLiveTargetMs = null;
-  let expiryPausedRemainMs = null;
-  /** 面板离线且仅本地订单兜底时，只生成一次冻结倒计时，避免每 30s 刷新把“暂停”又往前推 */
-  let expiryOfflineLocalSeeded = false;
   // 后端判定：是否有有效套餐（刷新后仍生效）
   let hasActivePlan = false;
   let profileUuid = "";
@@ -327,11 +324,18 @@
     }
     if (!hasActivePlan) {
       if (uuidEl) uuidEl.textContent = "-";
-      if (vlessEl) vlessEl.textContent = "—";
+      if (vlessEl) {
+        vlessEl.textContent = "—";
+        vlessEl.setAttribute("data-subscription-url", "");
+      }
       return;
     }
     if (uuidEl) uuidEl.textContent = profileUuid || "—";
-    if (vlessEl) vlessEl.textContent = profileVlessLink || "—";
+    if (vlessEl) {
+      var link = profileVlessLink || "";
+      vlessEl.textContent = link || "—";
+      vlessEl.setAttribute("data-subscription-url", link);
+    }
   }
 
   function authHeaders(json) {
@@ -375,26 +379,6 @@
       expEl.textContent = "不限";
       return;
     }
-    if (expiryMode === "paused") {
-      var pr = Number(expiryPausedRemainMs);
-      if (!Number.isFinite(pr)) {
-        expEl.className = EXPIRY_STYLE_NORMAL;
-        expEl.textContent = "—";
-        return;
-      }
-      if (pr <= 0) {
-        expEl.className = EXPIRY_STYLE_EXPIRED;
-        expEl.textContent = "已到期";
-        return;
-      }
-      expEl.textContent = formatDurationMinutes(pr) + "（已暂停）";
-      if (pr < urgentMs) {
-        expEl.className = EXPIRY_STYLE_URGENT;
-      } else {
-        expEl.className = EXPIRY_STYLE_NORMAL;
-      }
-      return;
-    }
     if (expiryMode !== "live" || !expiryLiveTargetMs) {
       expEl.className = EXPIRY_STYLE_NORMAL;
       expEl.textContent = "—";
@@ -419,7 +403,6 @@
     stopExpiryCountdown();
     expiryMode = "none";
     expiryLiveTargetMs = null;
-    expiryPausedRemainMs = null;
     renderExpiryView();
   }
 
@@ -427,11 +410,10 @@
     stopExpiryCountdown();
     expiryMode = "unlimited";
     expiryLiveTargetMs = null;
-    expiryPausedRemainMs = null;
     renderExpiryView();
   }
 
-  /** 面板在线：与服务器到期时间对齐，每分钟刷新一次 */
+  /** 绝对到期时间（Unix 毫秒）：按墙钟递减；面板暂时拉不到时仍继续计时 */
   function setExpiryLive(targetMs) {
     stopExpiryCountdown();
     var ms = Number(targetMs);
@@ -439,37 +421,18 @@
       setExpiryNone();
       return;
     }
-    expiryOfflineLocalSeeded = false;
     expiryMode = "live";
     expiryLiveTargetMs = ms;
-    expiryPausedRemainMs = null;
     renderExpiryView();
     expiryCountdownTimer = setInterval(renderExpiryView, 60000);
   }
 
-  /** 面板离线：冻结剩余时长，本地时间不再递减 */
-  function setExpiryPaused(remainMs) {
-    stopExpiryCountdown();
-    var r = Number(remainMs);
-    if (!Number.isFinite(r) || r < 0) {
-      setExpiryNone();
-      return;
-    }
-    expiryMode = "paused";
-    expiryLiveTargetMs = null;
-    expiryPausedRemainMs = r;
-    renderExpiryView();
-  }
-
-  /** 从“在线倒计时”切到离线暂停（网络错误、面板不可用时保留上次读数） */
-  function snapshotPauseFromLiveElseNone() {
+  /** 拉取 X-UI 失败时：保留已有绝对到期倒计时，不因短暂断线/面板超时而冻结时间 */
+  function preserveExpiryOnPanelUnreachable() {
     if (expiryMode === "live" && expiryLiveTargetMs != null) {
-      var left = expiryLiveTargetMs - Date.now();
-      setExpiryPaused(Math.max(0, left));
       return;
     }
-    // 已是暂停/不限：保持展示，不因一次请求失败被清空
-    if (expiryMode === "paused" || expiryMode === "unlimited") {
+    if (expiryMode === "unlimited") {
       return;
     }
     setExpiryNone();
@@ -630,7 +593,7 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
-      snapshotPauseFromLiveElseNone();
+      preserveExpiryOnPanelUnreachable();
       hideTrafficBattery();
       return;
     }
@@ -649,7 +612,7 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
-      snapshotPauseFromLiveElseNone();
+      preserveExpiryOnPanelUnreachable();
       hideTrafficBattery();
       return;
     }
@@ -661,7 +624,7 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
-      snapshotPauseFromLiveElseNone();
+      preserveExpiryOnPanelUnreachable();
       hideTrafficBattery();
       return;
     }
@@ -671,15 +634,12 @@
       var remEl = document.getElementById("xui-remaining");
       {
         var localExpMs = fb.expires_at_iso ? new Date(fb.expires_at_iso).getTime() : NaN;
-        // 刚从面板在线掉线：冻结「上次在线」的到期点（与面板一致）
-        if (expiryMode === "live" && expiryLiveTargetMs != null) {
-          setExpiryPaused(Math.max(0, expiryLiveTargetMs - Date.now()));
-          expiryOfflineLocalSeeded = true;
-        } else if (Number.isFinite(localExpMs) && localExpMs > 0) {
-          if (!expiryOfflineLocalSeeded) {
-            setExpiryPaused(Math.max(0, localExpMs - Date.now()));
-            expiryOfflineLocalSeeded = true;
+        if (Number.isFinite(localExpMs) && localExpMs > 0) {
+          if (expiryMode !== "live" || expiryLiveTargetMs !== localExpMs) {
+            setExpiryLive(localExpMs);
           }
+        } else if (expiryMode === "live" && expiryLiveTargetMs != null) {
+          /* 已有绝对到期点，继续墙钟倒计时 */
         } else {
           setExpiryNone();
         }
@@ -727,7 +687,7 @@
       }
       if (content) content.classList.add("hidden");
       if (hint) hint.textContent = "";
-      snapshotPauseFromLiveElseNone();
+      preserveExpiryOnPanelUnreachable();
       hideTrafficBattery();
       return;
     }
@@ -1027,7 +987,9 @@
       }
     }
     if (user.uuid) profileUuid = user.uuid;
-    if (user.vless_link) profileVlessLink = user.vless_link;
+    if (typeof user.vless_link === "string") {
+      profileVlessLink = user.vless_link;
+    }
     if (typeof user.has_active_plan === "boolean") {
       hasActivePlan = user.has_active_plan;
     } else {
@@ -1096,21 +1058,72 @@
     }
     if (hasActivePlan) {
       profileUuid = data.data.uuid || profileUuid;
-      profileVlessLink = data.data.vless_link || profileVlessLink;
+      if (typeof data.data.vless_link === "string" && data.data.vless_link.trim()) {
+        profileVlessLink = data.data.vless_link;
+      }
       applyAccessGate();
     }
     showBanner("ok", "已切换节点");
     await loadXuiStatus();
   };
 
+  function copyTextFallback(text) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        var ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (ok) resolve();
+        else reject(new Error("execCommand copy failed"));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async function copyTextToClipboard(text) {
+    var t = String(text || "").trim();
+    if (!t) throw new Error("empty");
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(t);
+        return;
+      } catch (e) {
+        /* 部分浏览器在权限/策略下仍失败，走 fallback */
+      }
+    }
+    await copyTextFallback(t);
+  }
+
   window.copyLink = async function () {
     if (!hasActivePlan) {
       showBanner("err", "请先选择套餐或续费后再复制订阅链接。");
       return;
     }
-    const text = document.getElementById("vless-link").textContent;
-    await navigator.clipboard.writeText(text);
-    showBanner("ok", "已复制");
+    var el = document.getElementById("vless-link");
+    var fromAttr = el && el.getAttribute("data-subscription-url");
+    var raw =
+      (profileVlessLink && String(profileVlessLink).trim()) ||
+      (fromAttr && String(fromAttr).trim()) ||
+      (el && el.textContent && el.textContent.trim()) ||
+      "";
+    if (!raw || raw === "—" || raw === "加载中…") {
+      showBanner("err", "订阅链接尚未就绪，请稍候或刷新页面后再复制。");
+      return;
+    }
+    try {
+      await copyTextToClipboard(raw);
+      showBanner("ok", "已复制");
+    } catch (e) {
+      showBanner("err", "复制失败，请长按上方链接手动全选复制。");
+    }
   };
 
   window.logout = function () {
@@ -1129,6 +1142,17 @@
           window.history.replaceState({}, "", u.pathname + (u.search || "") + (u.hash || ""));
         }
         showBanner("ok", "订单已提交，正在等待人工审核。审核通过后将同步开通套餐。");
+      } else if (
+        params.get("recharge_submitted") === "1" ||
+        sessionStorage.getItem("recharge_order_submitted") === "1"
+      ) {
+        sessionStorage.removeItem("recharge_order_submitted");
+        if (params.get("recharge_submitted") === "1") {
+          var ur = new URL(window.location.href);
+          ur.searchParams.delete("recharge_submitted");
+          window.history.replaceState({}, "", ur.pathname + (ur.search || "") + (ur.hash || ""));
+        }
+        showBanner("ok", "流量包订单已提交，正在等待人工审核。审核通过后将叠加流量。");
       } else if (sessionStorage.getItem("checkout_success") === "1") {
         sessionStorage.removeItem("checkout_success");
         showBanner("ok", "套餐已开通。请查看下方 UUID 与订阅链接，并可复制使用。");

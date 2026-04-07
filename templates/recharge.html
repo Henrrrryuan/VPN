@@ -12,7 +12,7 @@
 <body class="min-h-screen bg-slate-950 text-slate-100">
   <div class="pointer-events-none fixed inset-0 -z-10">
     <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
-    <div class="absolute top-60 right-0 h-[380px] w-[640px] rounded-full bg-fuchsia-500/12 blur-3xl"></div>
+    <div class="absolute top-60 right-0 h-[380px] w-[640px] translate-x-1/4 rounded-full bg-fuchsia-500/12 blur-3xl"></div>
   </div>
 
   <header class="sticky top-0 z-50 border-b border-white/10 bg-slate-950/60 backdrop-blur-xl">
@@ -30,7 +30,7 @@
 
     <section class="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20 backdrop-blur-xl sm:p-7">
       <h1 class="text-lg font-bold text-white">选择流量包</h1>
-      <p class="mt-1 text-sm text-slate-400">一次性叠加流量，到期时间不变。</p>
+      <p class="mt-1 text-sm text-slate-400">一次性叠加流量，到期时间不变；支付后需管理员在订单中心确认收款。</p>
       <div id="pack-radios" class="mt-5 grid gap-3 sm:grid-cols-3"></div>
     </section>
 
@@ -49,14 +49,100 @@
           立即支付 <span id="pay-btn-amount" class="tabular-nums">¥—</span>
         </button>
       </div>
-      <p class="mt-4 text-xs text-slate-500">支付通道接入前，点击将直接请求后端充值接口（与控制台「购买」一致）。若需先走第三方支付，可在此处改为仅创建订单。</p>
     </section>
   </main>
 
   <div
+    id="alipay-modal-root"
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200 ease-out"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="alipay-modal-title"
     aria-hidden="true"
-    class="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0 peer-checked:ring-2 peer-checked:ring-indigo-400/70 peer-checked:border-indigo-400/40 border-white/10 hover:border-white/20"
-  ></div>
+  >
+    <button
+      type="button"
+      id="alipay-modal-backdrop"
+      class="absolute inset-0 bg-black/55 backdrop-blur-md transition-opacity duration-200"
+      aria-label="关闭"
+    ></button>
+    <div
+      id="alipay-modal-panel"
+      class="relative z-10 w-full max-w-md scale-95 rounded-2xl border border-white/10 bg-slate-900/92 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl transition duration-200 ease-out sm:p-8"
+    >
+      <h2 id="alipay-modal-title" class="text-center text-lg font-bold text-white">支付宝扫码支付</h2>
+
+      <div class="mt-5 space-y-2 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm">
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">商品</span>
+          <span id="modal-pack-title" class="font-semibold text-white">—</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">叠加流量</span>
+          <span id="modal-pack-gb" class="text-slate-200">—</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-slate-500">到期时间</span>
+          <span class="text-slate-200">不变（仅加流量）</span>
+        </div>
+        <div class="flex justify-between gap-3 border-t border-white/10 pt-2">
+          <span class="text-slate-500">金额</span>
+          <span id="modal-amount" class="text-lg font-extrabold tabular-nums text-white">¥—</span>
+        </div>
+      </div>
+
+      <p class="mt-3 text-center text-sm text-slate-300">请使用支付宝扫码支付</p>
+
+      <div class="mt-4 flex justify-center">
+        <div class="rounded-2xl bg-white p-3 shadow-lg shadow-black/20">
+          <img
+            id="modal-alipay-qr"
+            src=""
+            width="200"
+            height="200"
+            alt="流量包收款码"
+            class="h-[200px] w-[200px] object-contain"
+          />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label for="modal-trade-no" class="sr-only">支付宝订单号</label>
+        <input
+          id="modal-trade-no"
+          type="text"
+          inputmode="numeric"
+          maxlength="28"
+          pattern="[0-9]{16,28}"
+          autocomplete="off"
+          placeholder="请输入支付宝付款订单号(16～28位纯数字)"
+          class="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none ring-indigo-400/0 transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/30"
+        />
+        <p class="mt-2 text-xs leading-relaxed text-slate-500">
+          付款后在支付宝账单中复制<strong class="text-slate-400">订单号</strong>，填错无法核对到账
+        </p>
+      </div>
+
+      <p id="modal-pay-error" class="mt-3 hidden rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-200"></p>
+
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row-reverse sm:justify-center">
+        <button
+          type="button"
+          id="btn-modal-paid"
+          class="min-h-[48px] flex-1 rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          我已支付
+        </button>
+        <button
+          type="button"
+          id="btn-modal-cancel"
+          class="min-h-[48px] flex-1 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script>
 (function () {
@@ -71,6 +157,13 @@
     let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
     if (!base) return path;
     return base.replace(/\/?$/, "") + (path.startsWith("/") ? path : "/" + path);
+  }
+
+  function staticUrl(filename) {
+    const meta = document.querySelector('meta[name="api-base"]');
+    let base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    const root = base.replace(/\/?$/, "");
+    return (root || "") + "/static/" + filename.replace(/^\//, "");
   }
 
   function authHeaders(json) {
@@ -89,6 +182,22 @@
     { gb: 100, title: "流量包 M", sub: "+100GB", price: 25, recommended: true },
     { gb: 200, title: "流量包 L", sub: "+200GB", price: 45, recommended: false },
   ];
+
+  const TRADE_NO_RE = /^\d{16,28}$/;
+  let showModal = false;
+  let order = null;
+  let isPaying = false;
+
+  function normalizeTradeNoInput(raw) {
+    return String(raw || "").replace(/\s+/g, "").trim();
+  }
+
+  function validateTradeNo(s) {
+    var t = normalizeTradeNoInput(s);
+    if (!t) return "请填写支付宝订单号";
+    if (!TRADE_NO_RE.test(t)) return "支付宝订单号须为 16～28 位纯数字";
+    return "";
+  }
 
   function parseGbQuery(q) {
     const n = Number(q);
@@ -126,6 +235,112 @@
     }
     b.textContent = msg;
     b.classList.remove("hidden");
+  }
+
+  function setModalOpen(open) {
+    showModal = open;
+    const root = document.getElementById("alipay-modal-root");
+    const panel = document.getElementById("alipay-modal-panel");
+    if (!root || !panel) return;
+    if (open) {
+      root.classList.remove("opacity-0", "pointer-events-none");
+      root.setAttribute("aria-hidden", "false");
+      document.body.classList.add("overflow-hidden");
+      requestAnimationFrame(function () {
+        panel.classList.remove("scale-95");
+        panel.classList.add("scale-100");
+      });
+    } else {
+      root.classList.add("opacity-0", "pointer-events-none");
+      root.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("overflow-hidden");
+      panel.classList.remove("scale-100");
+      panel.classList.add("scale-95");
+    }
+  }
+
+  function clearModalPayError() {
+    const el = document.getElementById("modal-pay-error");
+    if (!el) return;
+    el.textContent = "";
+    el.classList.add("hidden");
+  }
+
+  function showModalPayError(msg) {
+    const el = document.getElementById("modal-pay-error");
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+
+  function qrUrlForPack(gb) {
+    return staticUrl("qr/recharge_" + gb + ".png");
+  }
+
+  function openAlipayModal() {
+    const p = currentPack();
+    clearModalPayError();
+    order = null;
+    const tradeInput = document.getElementById("modal-trade-no");
+    if (tradeInput) {
+      tradeInput.value = "";
+      tradeInput.disabled = false;
+    }
+    document.getElementById("modal-pack-title").textContent = p.title;
+    document.getElementById("modal-pack-gb").textContent = "+" + p.gb + "GB（一次性叠加）";
+    document.getElementById("modal-amount").textContent = "¥" + p.price;
+    const qr = document.getElementById("modal-alipay-qr");
+    if (qr) {
+      qr.src = qrUrlForPack(p.gb) + "?t=" + Date.now();
+      qr.onerror = function () {
+        qr.onerror = null;
+        qr.src = staticUrl("qr/starter_month.png") + "?t=" + Date.now();
+      };
+    }
+    isPaying = false;
+    const paidBtn = document.getElementById("btn-modal-paid");
+    const cancelBtn = document.getElementById("btn-modal-cancel");
+    if (paidBtn) {
+      paidBtn.disabled = false;
+      paidBtn.textContent = "我已支付";
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+    setModalOpen(true);
+  }
+
+  function closeAlipayModal() {
+    if (isPaying) return;
+    const tradeInput = document.getElementById("modal-trade-no");
+    if (tradeInput) {
+      tradeInput.value = "";
+      tradeInput.disabled = false;
+    }
+    clearModalPayError();
+    setModalOpen(false);
+  }
+
+  async function submitRechargeOrder() {
+    if (!order) throw new Error("订单数据缺失");
+    const resp = await fetch(apiPath("/api/plans/recharge-checkout-order"), {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({
+        traffic_gb: order.gb,
+        trade_no: order.tradeNo,
+        amount: order.price,
+      }),
+    });
+    const body = await resp.json().catch(function () {
+      return null;
+    });
+    if (!resp.ok || !body || !body.success) {
+      throw new Error((body && body.message) || "提交失败");
+    }
+    try {
+      sessionStorage.setItem("recharge_order_submitted", "1");
+    } catch (e) {}
+    var dash = "{{ (site_url('dashboard') | trim) }}";
+    window.location.href = dash + (dash.indexOf("?") >= 0 ? "&" : "?") + "recharge_submitted=1";
   }
 
   function renderPacks() {
@@ -174,40 +389,61 @@
     });
   }
 
-  function sleep(ms) {
-    return new Promise(function (r) {
-      setTimeout(r, ms);
-    });
-  }
+  document.getElementById("btn-pay").addEventListener("click", function () {
+    openAlipayModal();
+  });
 
-  document.getElementById("btn-pay").addEventListener("click", async function () {
-    const btn = document.getElementById("btn-pay");
+  document.getElementById("btn-modal-cancel").addEventListener("click", closeAlipayModal);
+  document.getElementById("alipay-modal-backdrop").addEventListener("click", closeAlipayModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && showModal) closeAlipayModal();
+  });
+
+  document.getElementById("btn-modal-paid").addEventListener("click", async function () {
+    if (isPaying) return;
+    clearModalPayError();
+
+    const tradeInput = document.getElementById("modal-trade-no");
+    const tradeNo = normalizeTradeNoInput(tradeInput ? tradeInput.value : "");
+    var tradeErr = validateTradeNo(tradeNo);
+    if (tradeErr) {
+      showModalPayError(tradeErr);
+      return;
+    }
+
     const p = currentPack();
-    const oldHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = "处理中…";
+    order = {
+      gb: p.gb,
+      price: p.price,
+      tradeNo: tradeNo,
+    };
+
+    isPaying = true;
+    const paidBtn = document.getElementById("btn-modal-paid");
+    const cancelBtn = document.getElementById("btn-modal-cancel");
+    if (tradeInput) tradeInput.disabled = true;
+    if (paidBtn) {
+      paidBtn.disabled = true;
+      paidBtn.textContent = "提交中…";
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
+
     try {
-      const resp = await fetch(apiPath("/api/plans/recharge"), {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ traffic_gb: p.gb }),
+      await new Promise(function (r) {
+        setTimeout(r, 800);
       });
-      const body = await resp.json().catch(function () {
-        return null;
-      });
-      if (!resp.ok || !body || !body.success) {
-        showBanner("err", (body && body.message) || "充值失败");
-        return;
+      await submitRechargeOrder();
+    } catch (err) {
+      isPaying = false;
+      order = null;
+      if (tradeInput) tradeInput.disabled = false;
+      if (paidBtn) {
+        paidBtn.disabled = false;
+        paidBtn.textContent = "我已支付";
       }
-      showBanner("ok", (body && body.message) || "充值成功，正在返回控制台…");
-      await sleep(900);
-      window.location.href = "{{ (site_url('dashboard') | trim) }}";
-    } catch (e) {
-      showBanner("err", "网络异常，充值失败");
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = oldHtml;
-      updateTotals();
+      if (cancelBtn) cancelBtn.disabled = false;
+      showModalPayError(err.message || "网络异常，请稍后重试");
     }
   });
 

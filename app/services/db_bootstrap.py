@@ -87,3 +87,7 @@ def ensure_schema_compatibility() -> None:
     if "current_node_id" not in columns:
         db.session.execute(text("ALTER TABLE users ADD COLUMN current_node_id INTEGER"))
         db.session.commit()
+
+    if "is_disabled" not in columns:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0"))
+        db.session.commit()

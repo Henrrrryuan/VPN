@@ -7,11 +7,11 @@
     qq: "1234567890",
   };
 
-  var PLAN_LABEL = {
-    basic: "Starter",
-    pro: "Standard",
-    premium: "Pro",
-  };
+  function getLoginUrl() {
+    var m = document.querySelector('meta[name="app-login"]');
+    var u = m && m.getAttribute("content");
+    return u && String(u).trim() ? String(u).trim() : "/login";
+  }
 
   var modal = document.getElementById("contact-modal");
   var planEl = document.getElementById("contact-modal-plan");
@@ -25,22 +25,29 @@
   if (wxEl) wxEl.textContent = CONTACTS.wechat;
   if (qqEl) qqEl.textContent = CONTACTS.qq;
 
-  function openModal(plan) {
-    planEl.textContent = PLAN_LABEL[plan] || plan || "套餐";
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-    document.body.style.overflow = "hidden";
-  }
-
   function closeModal() {
     modal.classList.add("hidden");
     modal.classList.remove("flex");
     document.body.style.overflow = "";
   }
 
+  function openContactModal(planLabel) {
+    if (planEl) planEl.textContent = planLabel || "咨询与售后";
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+    document.body.style.overflow = "hidden";
+  }
+
   document.querySelectorAll("[data-buy-plan]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      openModal(btn.getAttribute("data-buy-plan") || "");
+      window.location.href = getLoginUrl() + "#register";
+    });
+  });
+
+  document.querySelectorAll("[data-open-contact]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var label = btn.getAttribute("data-contact-plan") || "咨询与售后";
+      openContactModal(label);
     });
   });
 

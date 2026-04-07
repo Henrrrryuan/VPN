@@ -5,7 +5,9 @@ from flask import Blueprint, abort, current_app, jsonify, make_response, redirec
 
 pages_bp = Blueprint("pages", __name__)
 
-_QR_FILENAME = re.compile(r"^(starter|standard|pro)_(week|month|quarter|half|year)\.png$")
+_QR_FILENAME = re.compile(
+    r"^(?:(?:starter|standard|pro)_(?:week|month|quarter|half|year))|(?:recharge_(?:50|100|200))\.png$"
+)
 
 
 @pages_bp.get("/api/health")
@@ -44,7 +46,7 @@ def checkout():
 
 @pages_bp.get("/qr/<filename>")
 def checkout_qr(filename: str):
-    """结账页按「套餐_周期」加载收款二维码：/qr/starter_month.png 等（文件位于 app/static/qr/）。"""
+    """收款二维码：/qr/starter_month.png、/qr/recharge_100.png 等（文件位于 app/static/qr/）。"""
     if not _QR_FILENAME.match(filename):
         abort(404)
     directory = os.path.join(current_app.root_path, "static", "qr")

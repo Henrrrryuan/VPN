@@ -46,16 +46,6 @@
   </header>
 
   <main class="mx-auto max-w-6xl px-4 py-8">
-    <p class="mb-6 max-w-3xl text-sm leading-relaxed text-slate-400">
-      用户提交支付宝交易号后订单为 <span class="text-amber-200/80">待审核</span>。确认收款后由服务端调用 X-UI 开通；流量与到期请在 <strong class="font-medium text-slate-300">3X-UI 面板</strong> 维护。
-    </p>
-
-    <p class="mb-6 max-w-3xl rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-xs leading-relaxed text-amber-100/95">
-      <strong class="text-amber-200">数据与谁同源：</strong>订单存在<strong class="text-white">打开本页时连到的那台应用</strong>的数据库里。
-      用户在公网域名（如部署机外网 IP）结账，若管理员在 <code class="rounded bg-black/35 px-1 font-mono text-[11px] text-slate-200">127.0.0.1:5001</code> 打开本页，看到的是<strong class="text-white">本机开发库</strong>，不会看到 VPS 上的订单。
-      请用<strong class="text-white">与用户结账相同的协议与主机</strong>访问 <code class="rounded bg-black/35 px-1 font-mono text-[11px]">/admin/orders</code>，并保证该环境已设置 <code class="rounded bg-black/35 px-1 font-mono text-[11px]">ADMIN_TOKEN</code>。
-      <span class="mt-2 block font-mono text-[11px] text-slate-400">当前页数据接口起点：<span id="admin-backend-origin">—</span></span>
-    </p>
 
     {% include 'partials/admin_orders/token_section.html' %}
     {% include 'partials/admin_orders/orders_panel.html' %}

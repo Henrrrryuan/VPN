@@ -48,6 +48,18 @@ PLAN_NAME_TO_TIER = {"Basic": "starter", "Pro": "standard", "Premium": "pro"}
 VALID_TIERS = frozenset(TIER_TO_PLAN_NAME)
 VALID_PERIODS = frozenset(PERIOD_DAYS)
 
+# 与 templates/recharge.html PACKS 对齐（流量包 · 人工审核收款）
+RECHARGE_PACK_PRICES: Dict[int, Decimal] = {
+    50: Decimal("15"),
+    100: Decimal("25"),
+    200: Decimal("45"),
+}
+VALID_RECHARGE_PACK_GB = frozenset(RECHARGE_PACK_PRICES.keys())
+
+
+def expected_recharge_pack_amount(traffic_gb: int) -> Optional[Decimal]:
+    return RECHARGE_PACK_PRICES.get(int(traffic_gb))
+
 # 与周期对应的流量额度展示后缀（如 47GB/周）
 TRAFFIC_PERIOD_SUFFIX = {
     "weekly": "/周",

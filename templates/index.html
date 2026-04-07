@@ -5,104 +5,134 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="api-base" content="{{ request.script_root or '' }}" />
-  <title>登录 / 注册 - VPN SaaS</title>
+  <title>登录 - VPN SaaS</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="theme-color" content="#6366f1" />
 </head>
+
 <body class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="pointer-events-none fixed inset-0 -z-10">
-    <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
-    <div class="absolute top-80 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl"></div>
+
+<!-- 背景 -->
+<div class="pointer-events-none fixed inset-0 -z-10">
+  <div class="absolute -top-40 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl"></div>
+  <div class="absolute top-80 left-1/3 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-3xl"></div>
+</div>
+
+<!-- Header -->
+<header class="border-b border-white/10 bg-slate-950/70 backdrop-blur">
+  <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
+    <a href="{{ site_url('index') }}" class="text-sm text-slate-300 hover:text-white">← 返回首页</a>
+    <a href="{{ site_url('index') }}#pricing" class="text-sm text-indigo-300">查看套餐</a>
+  </div>
+</header>
+
+<!-- 主体 -->
+<main class="mx-auto max-w-lg px-4 py-10">
+
+  <!-- 标题 -->
+  <div class="text-center">
+    <h1 class="text-3xl font-extrabold">🚀 登录即可使用高速节点</h1>
+    <p class="mt-2 text-sm text-slate-400">
+      支持 ChatGPT / YouTube / Netflix · 稳定低延迟
+    </p>
   </div>
 
-  <header class="border-b border-white/10 bg-slate-950/70 backdrop-blur">
-    <div class="mx-auto flex max-w-lg items-center justify-between gap-4 px-4 py-4">
-      <a href="{{ site_url('index') }}" class="text-sm font-semibold text-slate-300 hover:text-white transition">← 返回首页</a>
-      <a href="{{ site_url('index') }}#pricing" class="text-sm text-indigo-300 hover:text-indigo-200">查看套餐</a>
-    </div>
-  </header>
+  <!-- 卡片 -->
+  <div class="mt-8 rounded-2xl border border-white/10 bg-white/10 p-1.5">
 
-  <main class="mx-auto max-w-lg px-4 py-10">
-    <div class="text-center">
-      <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">登录 / 注册</h1>
-      <p class="mt-2 text-sm text-slate-400">注册成功后将通过 3X-UI 面板 API 创建客户端并返回订阅链接</p>
-    </div>
-
-    <div class="mt-8 rounded-[1.5rem] border border-white/10 bg-white/5 p-1 sm:p-1.5">
-      <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-950/60 p-1">
-        <button type="button" id="tab-login" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold transition">登录</button>
-        <button type="button" id="tab-register" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold transition">注册</button>
-      </div>
-
-      <div id="panel-login" class="auth-panel mt-6 space-y-4 px-4 pb-6 sm:px-5">
-        <div>
-          <label class="block text-xs font-medium text-slate-400">用户名或邮箱</label>
-          <input id="l-identity" autocomplete="username" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="用户名或邮箱" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400">密码</label>
-          <input id="l-password" type="password" autocomplete="current-password" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="密码" />
-        </div>
-        <button type="button" id="btn-login" onclick="login()" class="w-full rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:opacity-95 disabled:opacity-50">
-          登录
-        </button>
-      </div>
-
-      <div id="panel-register" class="auth-panel mt-6 hidden space-y-4 px-4 pb-6 sm:px-5">
-        <div>
-          <label class="block text-xs font-medium text-slate-400">用户名</label>
-          <input id="r-username" autocomplete="username" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="用户名" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400">邮箱</label>
-          <input id="r-email" type="email" autocomplete="email" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="邮箱" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400">密码（至少 6 位）</label>
-          <input id="r-password" type="password" autocomplete="new-password" class="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm outline-none ring-indigo-500/40 focus:border-indigo-400/50 focus:ring-2" placeholder="密码" />
-        </div>
-        <button type="button" id="btn-register" onclick="register()" class="w-full rounded-2xl bg-indigo-500/90 py-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
-          注册
-        </button>
-      </div>
+    <!-- tab -->
+    <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-950/60 p-1">
+      <button id="tab-login" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold">
+        登录
+      </button>
+      <button id="tab-register" class="tab-btn rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-400">
+        注册
+      </button>
     </div>
 
-    <div id="alert-banner" class="mt-6 hidden rounded-2xl border px-4 py-3 text-sm"></div>
+    <!-- 登录 -->
+    <div id="panel-login" class="mt-6 space-y-4 px-5 pb-6">
 
-    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-      <button type="button" id="toggle-raw" class="text-xs font-medium text-slate-400 hover:text-slate-200">显示接口原始响应</button>
-      <pre id="output" class="mt-2 hidden max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-400">尚未请求。</pre>
+      <input id="l-identity"
+        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+        placeholder="邮箱或用户名" />
+
+      <input id="l-password" type="password"
+        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+        placeholder="密码" />
+
+      <button type="button" onclick="login()"
+        class="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 py-3 font-semibold">
+        立即登录
+      </button>
+
+      <label class="flex cursor-pointer items-center gap-2.5 px-0.5 text-sm text-slate-400 select-none hover:text-slate-300">
+        <input type="checkbox" id="remember-login" class="h-4 w-4 rounded border-white/25 bg-slate-900 text-indigo-500 focus:ring-2 focus:ring-indigo-500/40" />
+        <span>记住登录状态</span>
+      </label>
+
     </div>
-  </main>
 
-  <script>
+    <!-- 注册 -->
+    <div id="panel-register" class="hidden mt-6 space-y-4 px-5 pb-6">
+
+      <input id="r-username" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm" placeholder="用户名" />
+      <input id="r-email" type="email" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm" placeholder="邮箱" />
+      <input id="r-password" type="password" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm" placeholder="密码（至少6位）" />
+
+      <button onclick="register()"
+        class="w-full rounded-xl bg-indigo-500 py-3 font-semibold">
+        注册并开始使用
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- 提示（登录/注册错误与成功提示） -->
+  <div id="alert-banner" class="mt-6 hidden rounded-xl border px-4 py-3 text-sm leading-relaxed"></div>
+
+  <!-- 信任 -->
+  <div class="mt-6 text-center text-xs text-slate-400">
+    ✔ 已稳定运行 · ✔ 多节点支持 · ✔ 安全连接
+  </div>
+
+</main>
+
+<script>
 (function () {
-  "use strict";
 
-  function apiPath(path) {
-    var base = "";
-    var meta = document.querySelector('meta[name="api-base"]');
-    if (meta && meta.getAttribute("content")) base = meta.getAttribute("content").trim();
-    if (!base) return path;
-    return base.replace(/\/?$/, "") + (path.charAt(0) === "/" ? path : "/" + path);
+  var LS_SAVED_IDENTITY = "vpn_saas_saved_login_identity";
+
+  var LOGIN_MSG = {
+    LOGIN_MISSING_FIELDS: "请输入邮箱或用户名与密码。",
+    LOGIN_INVALID_CREDENTIALS: "用户名或密码错误，请检查后重试。",
+    ACCOUNT_DISABLED: "账号已停用，请联系管理员。",
+    LOGIN_RATE_LIMITED: "登录尝试过于频繁，请稍后再试。",
+    SERVER_ERROR: "服务暂时不可用，请稍后再试。",
+  };
+
+  function $(id){return document.getElementById(id)}
+
+  function hideBanner() {
+    var b = $("alert-banner");
+    if (b) b.classList.add("hidden");
   }
 
-  function $(id) {
-    return document.getElementById(id);
-  }
-
-  function setOut(text) {
-    var el = $("output");
-    if (el) {
-      el.textContent = text;
-      el.classList.remove("hidden");
-    }
-  }
-
-  function showAlert(kind, msg) {
+  function showBanner(kind, text) {
     var b = $("alert-banner");
     if (!b) return;
-    b.classList.remove("hidden", "border-red-500/40", "bg-red-500/10", "text-red-200", "border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100", "border-amber-500/40", "bg-amber-500/10", "text-amber-100");
+    b.classList.remove(
+      "hidden",
+      "border-red-500/40",
+      "bg-red-500/10",
+      "text-red-200",
+      "border-amber-500/40",
+      "bg-amber-500/10",
+      "text-amber-100",
+      "border-emerald-500/40",
+      "bg-emerald-500/10",
+      "text-emerald-100"
+    );
     if (kind === "ok") {
       b.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-100");
     } else if (kind === "warn") {
@@ -110,161 +140,174 @@
     } else {
       b.classList.add("border-red-500/40", "bg-red-500/10", "text-red-200");
     }
-    b.textContent = msg;
+    b.textContent = text;
   }
 
-  function hideAlert() {
-    var b = $("alert-banner");
-    if (b) b.classList.add("hidden");
+  function apiPath(path) {
+    var meta = document.querySelector('meta[name="api-base"]');
+    var base = meta && meta.getAttribute("content") ? meta.getAttribute("content").trim() : "";
+    if (!base) return path;
+    return base.replace(/\/?$/, "") + (path.charAt(0) === "/" ? path : "/" + path);
   }
 
-  async function readResponseData(resp) {
-    var text = await resp.text();
+  function applyRememberedIdentity() {
+    var input = $("l-identity");
+    var cb = $("remember-login");
+    if (!input || !cb) return;
     try {
-      return JSON.parse(text);
-    } catch {
-      return {
-        success: false,
-        message: text ? text.slice(0, 500) : "服务器返回了非 JSON 内容",
-      };
-    }
+      var saved = localStorage.getItem(LS_SAVED_IDENTITY);
+      if (saved) {
+        input.value = saved;
+        cb.checked = true;
+        var pw = $("l-password");
+        if (pw) {
+          setTimeout(function () {
+            pw.focus();
+          }, 0);
+        }
+      }
+    } catch (e) {}
   }
 
-  function setBusy(busy) {
-    ["btn-register", "btn-login"].forEach(function (id) {
-      var el = $(id);
-      if (el) {
-        el.disabled = busy;
-        el.style.opacity = busy ? "0.6" : "";
+  function showLogin(){
+    hideBanner();
+    $("panel-login").classList.remove("hidden")
+    $("panel-register").classList.add("hidden")
+    $("tab-login").classList.add("bg-indigo-500/30","text-white")
+    $("tab-register").classList.remove("bg-indigo-500/30","text-white")
+    applyRememberedIdentity()
+  }
+
+  function showRegister(){
+    hideBanner();
+    $("panel-login").classList.add("hidden")
+    $("panel-register").classList.remove("hidden")
+    $("tab-register").classList.add("bg-indigo-500/30","text-white")
+    $("tab-login").classList.remove("bg-indigo-500/30","text-white")
+  }
+
+  showLogin()
+
+  $("tab-login").onclick = showLogin
+  $("tab-register").onclick = showRegister
+
+  var rememberCb = $("remember-login");
+  if (rememberCb) {
+    rememberCb.addEventListener("change", function () {
+      if (!rememberCb.checked) {
+        try {
+          localStorage.removeItem(LS_SAVED_IDENTITY);
+        } catch (e) {}
       }
     });
   }
 
-  var tabLogin = $("tab-login");
-  var tabRegister = $("tab-register");
-  var panelLogin = $("panel-login");
-  var panelRegister = $("panel-register");
+  window.login = async function(){
+    var identity = ($("l-identity") && $("l-identity").value) ? $("l-identity").value.trim() : "";
+    var password = ($("l-password") && $("l-password").value) ? $("l-password").value : "";
+    var remember = rememberCb && rememberCb.checked;
 
-  function styleTabs(active) {
-    [tabLogin, tabRegister].forEach(function (btn) {
-      btn.classList.remove("bg-indigo-500/25", "text-white", "shadow-sm");
-      btn.classList.add("text-slate-400");
-    });
-    if (active === "login") {
-      tabLogin.classList.add("bg-indigo-500/25", "text-white", "shadow-sm");
-      tabLogin.classList.remove("text-slate-400");
-    } else {
-      tabRegister.classList.add("bg-indigo-500/25", "text-white", "shadow-sm");
-      tabRegister.classList.remove("text-slate-400");
-    }
-  }
+    hideBanner();
 
-  function showPanel(which) {
-    if (which === "register") {
-      panelLogin.classList.add("hidden");
-      panelRegister.classList.remove("hidden");
-      styleTabs("register");
-    } else {
-      panelRegister.classList.add("hidden");
-      panelLogin.classList.remove("hidden");
-      styleTabs("login");
-    }
-    hideAlert();
-  }
-
-  tabLogin.addEventListener("click", function () {
-    showPanel("login");
-    history.replaceState(null, "", location.pathname + location.search);
-  });
-  tabRegister.addEventListener("click", function () {
-    showPanel("register");
-    history.replaceState(null, "", "#register");
-  });
-
-  function applyHash() {
-    var h = (location.hash || "").replace(/^#/, "").toLowerCase();
-    if (h === "register") showPanel("register");
-    else showPanel("login");
-  }
-  window.addEventListener("hashchange", applyHash);
-  applyHash();
-
-  $("toggle-raw").addEventListener("click", function () {
-    var pre = $("output");
-    pre.classList.toggle("hidden");
-  });
-
-  window.register = async function register() {
-    hideAlert();
-    setOut("请求中…");
-    $("output").classList.remove("hidden");
-    setBusy(true);
     try {
-      var body = {
-        username: ($("r-username") && $("r-username").value) || "",
-        email: ($("r-email") && $("r-email").value) || "",
-        password: ($("r-password") && $("r-password").value) || "",
-      };
-      var resp = await fetch(apiPath("/api/auth/register"), {
+      var r = await fetch(apiPath("/api/auth/login"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: identity, password: password }),
       });
-      var data = await readResponseData(resp);
-      setOut(JSON.stringify(data, null, 2));
-      if (resp.ok && data.success && data.data && data.data.token) {
-        localStorage.setItem("token", data.data.token);
-        showAlert("ok", "注册成功，正在进入控制台…");
-        window.location.href = apiPath("/dashboard");
+
+      var d = {};
+      try {
+        d = await r.json();
+      } catch (e1) {
+        d = {};
+      }
+
+      if (r.ok && d.success && d.data && d.data.token) {
+        try {
+          if (remember && identity) {
+            localStorage.setItem(LS_SAVED_IDENTITY, identity);
+          } else {
+            localStorage.removeItem(LS_SAVED_IDENTITY);
+          }
+        } catch (e2) {}
+        localStorage.setItem("token", d.data.token);
+        showBanner("ok", "登录成功，正在进入控制台…");
+        location.href = apiPath("/dashboard");
         return;
       }
-      var hint = "";
-      if (resp.status === 503) hint = "（无可用节点：请在后台启用节点并配置 3X-UI）";
-      else if (resp.status === 502) hint = "（面板 API 失败：检查节点 base_url、账号密码与 inbound_id）";
-      else if (resp.status === 409) hint = "（用户名或邮箱已存在）";
-      showAlert("err", (data.message || "注册失败") + hint);
+
+      var code = d.code || "";
+      if (r.status === 429 || code === "LOGIN_RATE_LIMITED") {
+        showBanner("warn", LOGIN_MSG.LOGIN_RATE_LIMITED);
+        return;
+      }
+      if (code === "ACCOUNT_DISABLED") {
+        showBanner("err", LOGIN_MSG.ACCOUNT_DISABLED);
+        return;
+      }
+      if (code === "LOGIN_MISSING_FIELDS") {
+        showBanner("err", LOGIN_MSG.LOGIN_MISSING_FIELDS);
+        return;
+      }
+      if (code === "SERVER_ERROR" || r.status >= 500) {
+        showBanner("err", LOGIN_MSG.SERVER_ERROR);
+        return;
+      }
+      if (code && LOGIN_MSG[code]) {
+        showBanner("err", LOGIN_MSG[code]);
+        return;
+      }
+      showBanner("err", LOGIN_MSG.LOGIN_INVALID_CREDENTIALS);
     } catch (e) {
-      showAlert("err", "网络错误：" + (e && e.message ? e.message : String(e)) + "。请用本应用地址打开（不要用 file://），并确认 Flask 已启动。");
-      setOut(String(e));
-    } finally {
-      setBusy(false);
+      showBanner("err", "网络异常，请检查连接后重试。");
     }
   };
 
-  window.login = async function login() {
-    hideAlert();
-    setOut("请求中…");
-    $("output").classList.remove("hidden");
-    setBusy(true);
+  window.register = async function(){
+    hideBanner();
+    let body = {
+      username: $("r-username").value,
+      email: $("r-email").value,
+      password: $("r-password").value
+    };
+
     try {
-      var body = {
-        identity: ($("l-identity") && $("l-identity").value) || "",
-        password: ($("l-password") && $("l-password").value) || "",
-      };
-      var resp = await fetch(apiPath("/api/auth/login"), {
+      let r = await fetch(apiPath("/api/auth/register"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      var data = await readResponseData(resp);
-      setOut(JSON.stringify(data, null, 2));
-      if (resp.ok && data.success && data.data && data.data.token) {
-        localStorage.setItem("token", data.data.token);
-        showAlert("ok", "登录成功，正在进入控制台…");
-        window.location.href = apiPath("/dashboard");
+
+      let d = {};
+      try {
+        d = await r.json();
+      } catch (e1) {
+        d = {};
+      }
+
+      if (r.ok && d.success && d.data && d.data.token) {
+        localStorage.setItem("token", d.data.token);
+        location.href = apiPath("/dashboard");
         return;
       }
-      showAlert("err", data.message || "登录失败，请检查用户名/邮箱与密码。");
+
+      if (r.status === 429) {
+        showBanner("warn", "请求过于频繁，请稍后再试。");
+        return;
+      }
+      if (r.status >= 500) {
+        showBanner("err", "服务暂时不可用，请稍后再试。");
+        return;
+      }
+      showBanner("err", d.message || "注册失败，请检查填写内容。");
     } catch (e) {
-      showAlert("err", "网络错误：" + (e && e.message ? e.message : String(e)));
-      setOut(String(e));
-    } finally {
-      setBusy(false);
+      showBanner("err", "网络异常，请检查连接后重试。");
     }
   };
+
 })();
-  </script>
+</script>
+
 </body>
 </html>

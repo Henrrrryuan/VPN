@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -11,7 +12,9 @@ from app.services.checkout_catalog import (
     TIER_LABELS,
     TIER_TO_PLAN_NAME,
     PERIOD_LABELS,
+    VALID_RECHARGE_PACK_GB,
     expected_amount,
+    expected_recharge_pack_amount,
     resolve_traffic_and_duration,
     VALID_PERIODS,
     VALID_TIERS,
@@ -23,6 +26,17 @@ from app.services.subscription_provisioning import (
 )
 from app.services.xui_client import XUIClient, XUIClientError
 from app.utils.auth_guard import jwt_required
+
+_ALIPAY_TRADE_NO_RE = re.compile(r"^\d{16,28}$")
+
+
+def _validate_alipay_trade_no(trade_no: str) -> tuple[bool, str]:
+    s = (trade_no or "").strip()
+    if not s:
+        return False, "请填写支付宝交易号"
+    if not _ALIPAY_TRADE_NO_RE.fullmatch(s):
+        return False, "支付宝交易号须为 16～28 位纯数字"
+    return True, ""
 
 
 def _node_for_user(user) -> Node | None:
@@ -279,7 +293,8 @@ def recharge():
 def checkout_order_create():
     """
     用户提交支付宝交易号后创建待审核订单（不立即开通）。
-    JSON: { "order_id", "tier", "period", "trade_no", "amount" }
+    JSON: { "tier", "period", "trade_no", "amount" }
+    - trade_no: 支付宝交易号，16～28 位纯数字
     - tier: starter | standard | pro
     - period: weekly | monthly | quarterly | half | yearly
     """
@@ -289,16 +304,14 @@ def checkout_order_create():
     tier = str(payload.get("tier") or "").strip().lower()
     period_key = str(payload.get("period") or "").strip().lower()
     trade_no = str(payload.get("trade_no") or "").strip()
-    public_oid = str(payload.get("order_id") or "").strip()
 
     if tier not in VALID_TIERS:
         return jsonify({"success": False, "message": "无效的套餐 tier"}), 400
     if period_key not in VALID_PERIODS:
         return jsonify({"success": False, "message": "无效的计费周期 period"}), 400
-    if not trade_no:
-        return jsonify({"success": False, "message": "请填写支付宝交易号"}), 400
-    if not public_oid or not public_oid.startswith("ORD"):
-        return jsonify({"success": False, "message": "无效的 order_id"}), 400
+    ok_trade, trade_msg = _validate_alipay_trade_no(trade_no)
+    if not ok_trade:
+        return jsonify({"success": False, "message": trade_msg}), 400
 
     exp = expected_amount(tier, period_key)
     if exp is None:
@@ -326,8 +339,9 @@ def checkout_order_create():
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
 
+    # 库内唯一键：与支付宝交易号一致，不再使用单独的「系统订单号 ORD…」
     row = PaymentOrder(
-        public_order_id=public_oid,
+        public_order_id=trade_no,
         user_id=user.id,
         user_email=user.email,
         plan_slug=tier,
@@ -346,17 +360,96 @@ def checkout_order_create():
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"success": False, "message": "订单号重复，请重新打开支付页"}), 409
+        return jsonify({"success": False, "message": "该订单已提交过或交易号冲突，请勿重复提交"}), 409
 
     return jsonify(
         {
             "success": True,
             "message": "订单已提交，请等待人工审核开通",
             "data": {
-                "order_id": public_oid,
                 "db_id": row.id,
                 "status": "waiting",
             },
+        }
+    )
+
+
+@plans_bp.post("/recharge-checkout-order")
+@jwt_required
+def recharge_checkout_order_create():
+    """
+    流量包：提交支付宝交易号 → 待审核；管理员确认后叠加流量（不改变到期）。
+    JSON: { "traffic_gb", "trade_no", "amount" }
+    """
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    trade_no = str(payload.get("trade_no") or "").strip()
+    ok_trade, trade_msg = _validate_alipay_trade_no(trade_no)
+    if not ok_trade:
+        return jsonify({"success": False, "message": trade_msg}), 400
+
+    raw_gb = payload.get("traffic_gb")
+    try:
+        gb_int = int(float(raw_gb))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "traffic_gb 无效"}), 400
+
+    if gb_int not in VALID_RECHARGE_PACK_GB:
+        return jsonify({"success": False, "message": "无效的流量包规格"}), 400
+    try:
+        if float(raw_gb) != float(gb_int):
+            return jsonify({"success": False, "message": "无效的流量包规格"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "无效的流量包规格"}), 400
+
+    exp = expected_recharge_pack_amount(gb_int)
+    if exp is None:
+        return jsonify({"success": False, "message": "价格表无此流量包"}), 400
+
+    raw_amt = payload.get("amount")
+    try:
+        amt_client = Decimal(str(raw_amt))
+    except Exception:
+        return jsonify({"success": False, "message": "amount 必须是数字"}), 400
+
+    if amt_client != exp:
+        return jsonify({"success": False, "message": "金额与服务器价目不一致，请刷新页面"}), 400
+
+    if PaymentOrder.query.filter_by(alipay_trade_no=trade_no).first():
+        return jsonify({"success": False, "message": "该支付宝订单号已提交过"}), 409
+
+    plan = Plan.query.filter_by(is_enabled=True).order_by(Plan.id.asc()).first()
+    if not plan:
+        return jsonify({"success": False, "message": "未找到可用套餐记录，请联系管理员"}), 503
+
+    row = PaymentOrder(
+        public_order_id=trade_no,
+        user_id=user.id,
+        user_email=user.email,
+        plan_slug="recharge",
+        period_key="pack",
+        plan_label=f"流量包 +{gb_int}GB",
+        period_label="一次性叠加",
+        amount=exp,
+        alipay_trade_no=trade_no,
+        status="waiting",
+        traffic_gb=float(gb_int),
+        duration_days=0,
+        plan_id=plan.id,
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "该订单已提交过或交易号冲突，请勿重复提交"}), 409
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "订单已提交，请等待人工审核后叠加流量",
+            "data": {"db_id": row.id, "status": "waiting"},
         }
     )
 

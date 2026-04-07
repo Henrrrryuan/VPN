@@ -29,6 +29,7 @@ class User(db.Model):
     uuid = db.Column(db.String(64), unique=True, nullable=False, index=True)
     vless_link = db.Column(db.Text, nullable=False)
     current_node_id = db.Column(db.Integer, db.ForeignKey("nodes.id"), nullable=True, index=True)
+    is_disabled = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 

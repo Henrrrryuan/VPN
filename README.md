@@ -224,11 +224,12 @@ sudo systemctl status flask-vpn --no-pager
 
 **`POST /api/plans/checkout-order`** Body 示例字段：
 
-- `order_id`：字符串，必须以 `ORD` 开头（前端生成）
 - `tier`：`starter` | `standard` | `pro`
 - `period`：`weekly` | `monthly` | `quarterly` | `half` | `yearly`
-- `trade_no`：支付宝交易号
+- `trade_no`：支付宝交易号，**16～28 位纯数字**（与前端、账单一致）
 - `amount`：必须与服务器价目表一致（`app/services/checkout_catalog.py`），否则返回 400
+
+不再使用单独的「系统订单号」；库内 `public_order_id` 与 `trade_no` 一致，便于唯一约束与核对。
 
 成功后在库中插入 `payment_orders`，`status=waiting`。
 
@@ -281,8 +282,8 @@ sudo systemctl status flask-vpn --no-pager
 2. **公网下单，本机 `127.0.0.1` 管理页看不到订单**  
    不是 bug：两套进程、两个数据库。请用公网同一站点打开 `/admin/orders`。
 
-3. **管理接口 403「未配置 ADMIN_TOKEN」**  
-   服务器 `.env` 未设置或为空；修改后需重启进程。
+3. **管理接口 403（刷新订单列表失败）**  
+   表示**服务端** `ADMIN_TOKEN` 为空：浏览器里即使已「保存令牌」也会 403。在 **VPS 项目根** 编辑 `.env` 增加一行，例如 `ADMIN_TOKEN=请改为长随机字符串`，保存后执行 `sudo systemctl restart flask-vpn`（或你的进程名）。确认 `systemctl cat flask-vpn` 里含 `EnvironmentFile=-/opt/vpn-saas/.env` 且 `WorkingDirectory` 指向含 `.env` 的目录。进程启动日志中若见 `ADMIN_TOKEN 未设置` 警告，说明当前进程仍未读到该变量。
 
 4. **注册 502**  
    无法连面板或入站 ID 错误；检查 `XUI_*`、防火墙、面板账号权限。

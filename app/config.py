@@ -28,5 +28,5 @@ class Config:
     # 3X-UI 客户端 limitIp：每个 UUID 同一时间允许的不同来源公网 IP 数（0 = 不限制）。
     XUI_CLIENT_LIMIT_IP = int(os.getenv("XUI_CLIENT_LIMIT_IP", "2"))
     NODES_JSON = os.getenv("NODES_JSON", "")
-    # 管理接口 /api/admin/orders* 与 /admin/orders：留空则禁用（返回 404）
+    # 管理接口 /api/admin/orders*：留空则禁用（请求返回 403）
     ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "").strip()
